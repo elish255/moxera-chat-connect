@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, ShieldCheck, Wallet, Globe2, RefreshCw } from "lucide-react";
+import { MessageCircle, ShieldCheck, Wallet, Globe2, RefreshCw, ArrowUpRight, Sparkles } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg.asset.json";
 import { pickForeigners, type Foreigner, loadUser, ACTIVATION_FEE } from "@/lib/moxera";
 import { Button } from "@/components/ui/button";
@@ -39,63 +39,75 @@ function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen pb-16">
-      <header className="flex items-center justify-between gap-2 bg-card px-4 py-3 shadow-sm">
-        <img src={logo.url} alt="Moxera Agencies" className="h-9 w-9 rounded-lg object-cover" />
-        <div className="flex-1">
-          <p className="text-sm font-extrabold tracking-tight text-accent">MOXERA AGENCIES</p>
-          <p className="text-[11px] text-primary">Chati kwa Kiswahili · Ulipwe</p>
+    <main className="min-h-screen overflow-hidden pb-16">
+      <header className="bg-panel text-panel-foreground">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
+          <Link to="/" className="flex min-w-0 items-center gap-3">
+            <img src={logo.url} alt="Moxera Agencies" className="h-11 w-11 rounded-lg object-cover" />
+            <div className="min-w-0">
+              <p className="font-heading text-sm font-bold uppercase">Moxera Agencies</p>
+              <p className="text-[10px] uppercase tracking-widest text-panel-foreground/60">The chat agency</p>
+            </div>
+          </Link>
+          <Button asChild size="sm" variant={username ? "secondary" : "default"} className="rounded-full px-5">
+            <Link to={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</Link>
+          </Button>
         </div>
-        {username ? (
-          <Button asChild size="sm">
-            <Link to="/dashboard">Dashboard</Link>
-          </Button>
-        ) : (
-          <Button asChild size="sm" variant="outline">
-            <Link to="/register">Jisajili</Link>
-          </Button>
-        )}
+
+        <section className="mx-auto grid max-w-5xl gap-8 px-5 pb-12 pt-8 sm:px-8 md:grid-cols-[1.2fr_0.8fr] md:items-end md:pb-16">
+          <div>
+            <div className="mb-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary">
+              <Sparkles className="h-4 w-4" /> Ongea · Fundisha · Lipwa
+            </div>
+            <h1 className="font-display text-5xl leading-none text-panel-foreground sm:text-6xl">
+              Chati kwa Kiswahili, <span className="italic text-primary">lipwa</span> kwa muda wako.
+            </h1>
+          </div>
+          <div className="md:pb-1">
+            <p className="max-w-md text-sm leading-7 text-panel-foreground/65">
+              Ungana na wageni kutoka nchi mbalimbali duniani, wafundishe Kiswahili kwa mazungumzo ya kawaida na ulipwe.
+            </p>
+            <div className="mt-6 h-1 w-20 rounded-full bg-primary" />
+          </div>
+        </section>
       </header>
 
-      <section className="px-4 pt-6">
-        <h1 className="text-2xl font-extrabold leading-tight text-accent">
-          Chati na Wazungu kwa Kiswahili, <span className="text-primary">ulipwe kila ujumbe</span>
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Wageni kutoka Ulaya, Marekani na Canada wanahitaji mtu wa kuzungumza naye Kiswahili.
-          Wewe unafundisha kwa mazungumzo ya kawaida, Moxera inakulipa.
-        </p>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
+      <section className="mx-auto max-w-5xl px-5 sm:px-8">
+        <div className="-mt-6 grid grid-cols-3 gap-2 sm:gap-3">
           {[
             { icon: Wallet, label: "Malipo kila siku" },
             { icon: Globe2, label: "Wageni wapya" },
             { icon: ShieldCheck, label: "Akaunti salama" },
           ].map((item) => (
-            <div key={item.label} className="rounded-xl bg-card p-3 text-center shadow-sm">
+            <div key={item.label} className="border border-border bg-card p-3 text-center shadow-sm backdrop-blur-xl sm:p-5">
               <item.icon className="mx-auto h-5 w-5 text-primary" />
-              <p className="mt-1 text-[11px] font-medium text-foreground">{item.label}</p>
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-foreground sm:text-xs">{item.label}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="px-4 pt-7">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-accent">Chagua foreigner wa kuchat naye</h2>
-          <button
+      <section className="mx-auto max-w-5xl px-5 pt-12 sm:px-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary">Available now</p>
+            <h2 className="font-display text-3xl leading-none text-foreground sm:text-4xl">Chagua mtu wa kuzungumza naye</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setList(pickForeigners(4))}
-            className="flex items-center gap-1 text-xs font-semibold text-primary"
+            className="shrink-0 rounded-full text-primary"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Badilisha
-          </button>
+          </Button>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {list.map((f) => (
-            <article key={f.id} className="rounded-2xl bg-card p-4 shadow-sm">
+            <article key={f.id} className="group border border-border bg-card p-5 shadow-sm transition-transform duration-300 hover:-translate-y-1">
               <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-xl">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-xl ring-4 ring-background">
                   {f.flag}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -109,32 +121,34 @@ function Home() {
                     {f.country} · Miaka {f.age} · {f.platform}
                   </p>
                   <p className="mt-1 text-xs text-foreground/80">{f.bio}</p>
-                  <p className="mt-2 text-xs font-semibold text-primary">
+                  <p className="mt-3 text-xs font-bold text-primary">
                     Malipo: {f.rate.toLocaleString()} TZS kwa mazungumzo
                   </p>
                 </div>
               </div>
               <Button
-                className="mt-3 w-full"
+                className="mt-4 w-full rounded-full"
                 onClick={() => navigate({ to: "/chat/$id", params: { id: f.id } })}
               >
-                <MessageCircle className="h-4 w-4" /> Start Chat
+                <MessageCircle className="h-4 w-4" /> Start Chat <ArrowUpRight className="ml-auto h-4 w-4" />
               </Button>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="mt-8 px-4">
-        <div className="rounded-2xl p-5 text-panel-foreground shadow-sm" style={{ background: "var(--gradient-panel)" }}>
-          <p className="text-xs uppercase tracking-wide opacity-70">Kuanza kulipwa</p>
-          <p className="mt-1 text-lg font-bold">
+      <section className="mx-auto mt-12 max-w-5xl px-5 sm:px-8">
+        <div className="grid gap-6 bg-panel p-6 text-panel-foreground shadow-lg sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Kuanza kulipwa</p>
+          <p className="mt-2 font-display text-3xl">
             Activation fee ya {ACTIVATION_FEE.toLocaleString()} TZS
           </p>
-          <p className="mt-1 text-sm opacity-80">
+          <p className="mt-2 max-w-lg text-sm text-panel-foreground/65">
             Malipo haya ni ya mara moja, yanakufungulia akaunti ya kuchat na kulipwa.
           </p>
-          <Button asChild variant="secondary" className="mt-4 w-full font-bold">
+          </div>
+          <Button asChild className="h-12 rounded-full px-8 font-bold">
             <Link to="/register">JISAJILI SASA</Link>
           </Button>
         </div>
