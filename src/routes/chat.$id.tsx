@@ -94,7 +94,8 @@ function ChatPage() {
       return;
     }
 
-    const reply = foreigner.replies[sentCount % foreigner.replies.length];
+    const reply =
+      foreigner.replies[sentCount % foreigner.replies.length] ?? "Asante sana rafiki!";
     setSentCount((c) => c + 1);
     setTyping(true);
     setTimeout(() => {

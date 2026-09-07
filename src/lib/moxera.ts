@@ -203,7 +203,9 @@ export function pickForeigners(count = 4): Foreigner[] {
   const pool = [...FOREIGNERS];
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+    const a = pool[i]!;
+    pool[i] = pool[j]!;
+    pool[j] = a;
   }
   return pool.slice(0, count);
 }
