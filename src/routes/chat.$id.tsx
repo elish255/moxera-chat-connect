@@ -110,8 +110,15 @@ function ChatPage() {
         <button onClick={() => navigate({ to: "/" })} aria-label="Rudi">
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-lg">
-          {foreigner.flag}
+        <div className="relative shrink-0">
+          <img
+            src={foreigner.avatar}
+            alt={foreigner.name}
+            width={512}
+            height={512}
+            className="h-10 w-10 rounded-full object-cover ring-2 ring-primary/40"
+          />
+          <span className="absolute -bottom-1 -right-1 text-[11px]">{foreigner.flag}</span>
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-foreground">{foreigner.name}</p>

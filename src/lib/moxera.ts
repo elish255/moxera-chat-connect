@@ -1,3 +1,16 @@
+import emma from "@/assets/avatars/emma.jpg";
+import james from "@/assets/avatars/james.jpg";
+import sophie from "@/assets/avatars/sophie.jpg";
+import hans from "@/assets/avatars/hans.jpg";
+import lucy from "@/assets/avatars/lucy.jpg";
+import marco from "@/assets/avatars/marco.jpg";
+import anna from "@/assets/avatars/anna.jpg";
+import david from "@/assets/avatars/david.jpg";
+
+const AVATARS: Record<string, string> = {
+  emma, james, sophie, hans, lucy, marco, anna, david,
+};
+
 export type Foreigner = {
   id: string;
   name: string;
@@ -10,9 +23,10 @@ export type Foreigner = {
   bio: string;
   opener: string[];
   replies: string[];
+  avatar: string;
 };
 
-const FOREIGNERS: Foreigner[] = [
+const BASE: Omit<Foreigner, "avatar">[] = [
   {
     id: "emma",
     name: "Emma Larsson",
@@ -198,6 +212,8 @@ const FOREIGNERS: Foreigner[] = [
     ],
   },
 ];
+
+const FOREIGNERS: Foreigner[] = BASE.map((f) => ({ ...f, avatar: AVATARS[f.id]! }));
 
 export function pickForeigners(count = 4): Foreigner[] {
   const pool = [...FOREIGNERS];

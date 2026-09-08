@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, ShieldCheck, Wallet, Globe2, RefreshCw, ArrowUpRight, Sparkles } from "lucide-react";
+import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg.asset.json";
 import { pickForeigners, type Foreigner, loadUser, ACTIVATION_FEE } from "@/lib/moxera";
 import { Button } from "@/components/ui/button";
@@ -34,16 +34,18 @@ function Home() {
   useEffect(() => {
     setList(pickForeigners(4));
     setUsername(loadUser()?.username ?? null);
-    const t = setInterval(() => setList(pickForeigners(4)), 20000);
+    const t = setInterval(() => setList(pickForeigners(4)), 8000);
     return () => clearInterval(t);
   }, []);
 
   return (
     <main className="min-h-screen overflow-hidden pb-16">
-      <header className="bg-panel text-panel-foreground">
+      <header className="text-panel-foreground" style={{ background: "var(--gradient-panel)" }}>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-3">
-            <img src={logo.url} alt="Moxera Agencies" className="h-11 w-11 rounded-lg object-cover" />
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-lg ring-2 ring-primary/40">
+              <img src={logo.url} alt="Moxera Agencies" className="h-full w-full rounded-xl object-contain" />
+            </span>
             <div className="min-w-0">
               <p className="font-heading text-sm font-bold uppercase">Moxera Agencies</p>
               <p className="text-[10px] uppercase tracking-widest text-panel-foreground/60">The chat agency</p>
@@ -79,7 +81,7 @@ function Home() {
             { icon: Globe2, label: "Wageni wapya" },
             { icon: ShieldCheck, label: "Akaunti salama" },
           ].map((item) => (
-            <div key={item.label} className="border border-border bg-card p-3 text-center shadow-sm backdrop-blur-xl sm:p-5">
+            <div key={item.label} className="rounded-2xl border border-border bg-card p-3 text-center shadow-md backdrop-blur-xl sm:p-5">
               <item.icon className="mx-auto h-5 w-5 text-primary" />
               <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-foreground sm:text-xs">{item.label}</p>
             </div>
@@ -88,50 +90,82 @@ function Home() {
       </section>
 
       <section className="mx-auto max-w-5xl px-5 pt-12 sm:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary">Available now</p>
-            <h2 className="font-display text-3xl leading-none text-foreground sm:text-4xl">Chagua mtu wa kuzungumza naye</h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setList(pickForeigners(4))}
-            className="shrink-0 rounded-full text-primary"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Badilisha
-          </Button>
+        <div className="mb-6">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary">Available now</p>
+          <h2 className="font-display text-3xl leading-none text-foreground sm:text-4xl">Chagua mtu wa kuzungumza naye</h2>
+          <p className="mt-2 text-xs text-muted-foreground">Orodha inabadilika yenyewe kila sekunde chache.</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           {list.map((f) => (
-            <article key={f.id} className="group border border-border bg-card p-5 shadow-sm transition-transform duration-300 hover:-translate-y-1">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-xl ring-4 ring-background">
-                  {f.flag}
+            <article
+              key={f.id}
+              className="group animate-in fade-in slide-in-from-bottom-2 overflow-hidden rounded-3xl border border-border bg-card shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="relative flex items-center gap-4 p-5">
+                <span
+                  className="absolute inset-x-0 top-0 h-1.5"
+                  style={{ background: "var(--gradient-flame)" }}
+                />
+                <div className="relative shrink-0">
+                  <img
+                    src={f.avatar}
+                    alt={f.name}
+                    loading="lazy"
+                    width={512}
+                    height={512}
+                    className="h-20 w-20 rounded-2xl object-cover shadow-md ring-2 ring-primary/30"
+                  />
+                  <span className="absolute -bottom-1 -right-1 rounded-full bg-card px-1 text-base shadow">
+                    {f.flag}
+                  </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-bold text-foreground">{f.name}</p>
-                    <span
-                      className={`h-2 w-2 rounded-full ${f.online ? "bg-primary" : "bg-muted-foreground"}`}
-                    />
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate font-heading font-bold text-foreground">{f.name}</p>
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-sky" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {f.country} · Miaka {f.age} · {f.platform}
+                    {f.country} · Miaka {f.age}
                   </p>
-                  <p className="mt-1 text-xs text-foreground/80">{f.bio}</p>
-                  <p className="mt-3 text-xs font-bold text-primary">
-                    Malipo: {f.rate.toLocaleString()} TZS kwa mazungumzo
-                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">
+                      {f.platform}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        f.online ? "bg-lime/20 text-foreground" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {f.online ? "Mtandaoni" : "Hayupo"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <Button
-                className="mt-4 w-full rounded-full"
-                onClick={() => navigate({ to: "/chat/$id", params: { id: f.id } })}
+
+              <p className="px-5 text-xs leading-6 text-foreground/75">{f.bio}</p>
+
+              <div className="m-4 mt-4 flex items-center justify-between rounded-2xl p-4 text-panel-foreground shadow-md"
+                style={{ background: "var(--gradient-flame)" }}
               >
-                <MessageCircle className="h-4 w-4" /> Start Chat <ArrowUpRight className="ml-auto h-4 w-4" />
-              </Button>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Unalipwa</p>
+                  <p className="font-heading text-2xl font-extrabold leading-none">
+                    {f.rate.toLocaleString()} <span className="text-xs font-bold">TZS</span>
+                  </p>
+                  <p className="mt-1 text-[10px] opacity-80">kwa mazungumzo moja</p>
+                </div>
+                <Wallet className="h-8 w-8 opacity-70" />
+              </div>
+
+              <div className="px-4 pb-5">
+                <Button
+                  className="w-full rounded-full font-bold shadow-md"
+                  onClick={() => navigate({ to: "/chat/$id", params: { id: f.id } })}
+                >
+                  <MessageCircle className="h-4 w-4" /> Start Chat <ArrowUpRight className="ml-auto h-4 w-4" />
+                </Button>
+              </div>
             </article>
           ))}
         </div>
