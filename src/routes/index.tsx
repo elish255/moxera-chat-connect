@@ -34,7 +34,7 @@ function Home() {
   useEffect(() => {
     setList(pickForeigners(4));
     setUsername(loadUser()?.username ?? null);
-    const t = setInterval(() => setList(pickForeigners(4)), 20000);
+    const t = setInterval(() => setList(pickForeigners(4)), 8000);
     return () => clearInterval(t);
   }, []);
 
