@@ -40,10 +40,12 @@ function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden pb-16">
-      <header className="bg-panel text-panel-foreground">
+      <header className="text-panel-foreground" style={{ background: "var(--gradient-panel)" }}>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-3">
-            <img src={logo.url} alt="Moxera Agencies" className="h-11 w-11 rounded-lg object-cover" />
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-lg ring-2 ring-primary/40">
+              <img src={logo.url} alt="Moxera Agencies" className="h-full w-full rounded-xl object-contain" />
+            </span>
             <div className="min-w-0">
               <p className="font-heading text-sm font-bold uppercase">Moxera Agencies</p>
               <p className="text-[10px] uppercase tracking-widest text-panel-foreground/60">The chat agency</p>
