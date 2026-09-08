@@ -213,9 +213,72 @@ const BASE: Omit<Foreigner, "avatar">[] = [
   },
 ];
 
-const FOREIGNERS: Foreigner[] = BASE.map((f) => ({ ...f, avatar: AVATARS[f.id]! }));
+type Seed = {
+  id: string;
+  name: string;
+  country: string;
+  flag: string;
+  age: number;
+  platform: Foreigner["platform"];
+  rate: number;
+  online: boolean;
+  from: string;
+  wants: string;
+  minutes: number;
+};
 
-export function pickForeigners(count = 4): Foreigner[] {
+const SEEDS: Seed[] = [
+  { id: "william", name: "William", country: "Australia", flag: "🇦🇺", age: 31, platform: "TikTok", rate: 49500, online: true, from: "james", wants: "Michezo & Mpira wa Miguu", minutes: 55 },
+  { id: "jonathan", name: "Jonathan", country: "Norway", flag: "🇳🇴", age: 29, platform: "Facebook", rate: 48000, online: true, from: "hans", wants: "Filamu za Mazingira", minutes: 53 },
+  { id: "amelia", name: "Amelia", country: "Sweden", flag: "🇸🇪", age: 26, platform: "Instagram", rate: 41500, online: true, from: "emma", wants: "Mapishi ya Kiafrika", minutes: 45 },
+  { id: "oliver", name: "Oliver", country: "UK", flag: "🇬🇧", age: 33, platform: "WhatsApp", rate: 52000, online: true, from: "lucy", wants: "Biashara & Utamaduni", minutes: 60 },
+  { id: "chloe", name: "Chloe", country: "France", flag: "🇫🇷", age: 24, platform: "TikTok", rate: 44000, online: true, from: "sophie", wants: "Habari za Afrika Mashariki", minutes: 40 },
+  { id: "luca", name: "Luca", country: "Italy", flag: "🇮🇹", age: 37, platform: "Facebook", rate: 46500, online: true, from: "marco", wants: "Vyakula & Migahawa", minutes: 48 },
+  { id: "nora", name: "Nora", country: "Poland", flag: "🇵🇱", age: 22, platform: "TikTok", rate: 39500, online: true, from: "anna", wants: "Muziki wa Bongo Flava", minutes: 35 },
+  { id: "ethan", name: "Ethan", country: "Canada", flag: "🇨🇦", age: 42, platform: "WhatsApp", rate: 54500, online: true, from: "david", wants: "Kiswahili cha Biashara", minutes: 62 },
+  { id: "mia", name: "Mia", country: "Germany", flag: "🇩🇪", age: 28, platform: "Instagram", rate: 43000, online: true, from: "hans", wants: "Safari & Utalii", minutes: 42 },
+  { id: "harry", name: "Harry", country: "USA", flag: "🇺🇸", age: 35, platform: "YouTube", rate: 51000, online: true, from: "james", wants: "Methali za Kiswahili", minutes: 58 },
+  { id: "elise", name: "Elise", country: "Belgium", flag: "🇧🇪", age: 30, platform: "Facebook", rate: 45500, online: false, from: "sophie", wants: "Historia ya Zanzibar", minutes: 47 },
+  { id: "noah", name: "Noah", country: "Netherlands", flag: "🇳🇱", age: 32, platform: "WhatsApp", rate: 47500, online: true, from: "david", wants: "Mazungumzo ya Kila Siku", minutes: 50 },
+];
+
+const BASE_BY_ID = new Map(BASE.map((b) => [b.id, b]));
+
+const EXTRA: Foreigner[] = SEEDS.map((s) => {
+  const src = BASE_BY_ID.get(s.from)!;
+  const rename = (t: string) => t.replace(src.name, s.name).replace(src.name.split(" ")[0]!, s.name);
+  return {
+    id: s.id,
+    name: s.name,
+    country: s.country,
+    flag: s.flag,
+    age: s.age,
+    platform: s.platform,
+    rate: s.rate,
+    online: s.online,
+    bio: src.bio,
+    opener: src.opener.map(rename),
+    replies: src.replies.map(rename),
+    avatar: AVATARS[s.from]!,
+    wants: s.wants,
+    minutes: s.minutes,
+    rating: Number((4.5 + ((s.name.length * 7) % 5) / 10).toFixed(1)),
+  };
+});
+
+const FOREIGNERS: Foreigner[] = [
+  ...EXTRA,
+  ...BASE.map((f, i) => ({
+    ...f,
+    rate: 38000 + i * 1500,
+    avatar: AVATARS[f.id]!,
+    wants: "Mazoezi ya Kiswahili",
+    minutes: 38 + i * 2,
+    rating: Number((4.5 + (i % 5) / 10).toFixed(1)),
+  })),
+];
+
+export function pickForeigners(count = 12): Foreigner[] {
   const pool = [...FOREIGNERS];
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -229,6 +292,18 @@ export function pickForeigners(count = 4): Foreigner[] {
 export function getForeigner(id: string): Foreigner | undefined {
   return FOREIGNERS.find((f) => f.id === id);
 }
+
+export type Testimonial = { name: string; place: string; amount: number; note: string };
+
+export const TESTIMONIALS: Testimonial[] = [
+  { name: "Neema J.", place: "Dar es Salaam", amount: 145000, note: "Nimelipwa baada ya kuchat na William" },
+  { name: "Baraka M.", place: "Mwanza", amount: 98500, note: "Malipo yameingia M-Pesa dakika 5" },
+  { name: "Asha R.", place: "Arusha", amount: 212000, note: "Wiki hii nimemaliza chats 6" },
+  { name: "Juma K.", place: "Dodoma", amount: 76000, note: "Nimelipwa kwa mazungumzo na Amelia" },
+  { name: "Sara P.", place: "Zanzibar", amount: 189500, note: "Airtel Money imeingia salama" },
+  { name: "Emmanuel S.", place: "Mbeya", amount: 132000, note: "Activation ililipa mara moja" },
+  { name: "Zawadi L.", place: "Tanga", amount: 165500, note: "Nimechat na Jonathan, nimelipwa" },
+];
 
 export const ACTIVATION_FEE = 16000;
 
