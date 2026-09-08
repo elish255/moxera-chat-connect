@@ -81,7 +81,9 @@ function Dashboard() {
       <header className="flex items-center justify-between bg-card px-3 py-2.5 shadow-sm">
         <Menu className="h-5 w-5 text-primary" />
         <div className="flex items-center gap-2">
-          <img src={logo.url} alt="Moxera Agencies" className="h-7 w-7 rounded-md object-cover" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white p-0.5 shadow ring-1 ring-primary/30">
+            <img src={logo.url} alt="Moxera Agencies" className="h-full w-full rounded-md object-contain" />
+          </span>
           <span className="text-sm font-extrabold text-accent">MOXERA SITE</span>
         </div>
         <div className="text-right">
@@ -197,8 +199,16 @@ function Dashboard() {
           <div className="space-y-2">
             {foreigners.map((f) => (
               <div key={f.id} className="flex items-center gap-3 rounded-xl bg-secondary px-3 py-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-base">
-                  {f.flag}
+                <span className="relative shrink-0">
+                  <img
+                    src={f.avatar}
+                    alt={f.name}
+                    loading="lazy"
+                    width={512}
+                    height={512}
+                    className="h-10 w-10 rounded-full object-cover ring-2 ring-primary/30"
+                  />
+                  <span className="absolute -bottom-1 -right-1 text-[10px]">{f.flag}</span>
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{f.name}</p>
