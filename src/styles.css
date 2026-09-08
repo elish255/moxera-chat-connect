@@ -52,6 +52,8 @@
   --color-panel: var(--panel);
   --color-panel-foreground: var(--panel-foreground);
   --color-gold: var(--gold);
+  --color-sky: var(--sky);
+  --color-lime: var(--lime);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
