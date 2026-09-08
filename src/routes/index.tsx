@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, ShieldCheck, Wallet, Globe2, RefreshCw, ArrowUpRight, Sparkles } from "lucide-react";
+import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg.asset.json";
 import { pickForeigners, type Foreigner, loadUser, ACTIVATION_FEE } from "@/lib/moxera";
 import { Button } from "@/components/ui/button";
