@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
-import logo from "@/assets/moxera-logo.jpg.asset.json";
+import logo from "@/assets/moxera-logo.jpg";
 import { Button } from "@/components/ui/button";
 import { ACTIVATION_FEE, COUNTRIES, saveUser } from "@/lib/moxera";
 
@@ -99,7 +99,7 @@ function Register() {
     <main className="min-h-screen px-4 py-6">
       <div className="mx-auto max-w-md rounded-3xl bg-card p-6 shadow-lg">
         <div className="flex items-center gap-3">
-          <img src={logo.url} alt="Moxera Agencies" className="h-10 w-10 rounded-lg object-cover" />
+          <img src={logo} alt="Moxera Agencies" className="h-10 w-10 rounded-lg object-contain" />
           <div className="flex-1">
             <h1 className="text-2xl font-extrabold text-accent">Create Account</h1>
             <p className="text-xs text-muted-foreground">Moxera Agencies</p>

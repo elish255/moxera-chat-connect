@@ -5,7 +5,7 @@ import {
   Menu, Copy, MessageCircle, Megaphone, PieChart, Languages, PenLine, Rocket, LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import logo from "@/assets/moxera-logo.jpg.asset.json";
+import logo from "@/assets/moxera-logo.jpg";
 import { Button } from "@/components/ui/button";
 import { clearUser, loadUser, pickForeigners, type Foreigner, type MoxeraUser } from "@/lib/moxera";
 
@@ -62,7 +62,7 @@ function Dashboard() {
   if (!user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <img src={logo.url} alt="Moxera Agencies" className="h-16 w-16 rounded-xl object-cover" />
+        <img src={logo} alt="Moxera Agencies" className="h-16 w-16 rounded-xl object-contain" />
         <h1 className="text-lg font-bold text-accent">Hujajisajili bado</h1>
         <p className="text-sm text-muted-foreground">
           Jisajili kwa Activation fee ya 16,000 TZS ili dashboard yako ifunguke.
@@ -82,7 +82,7 @@ function Dashboard() {
         <Menu className="h-5 w-5 text-primary" />
         <div className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white p-0.5 shadow ring-1 ring-primary/30">
-            <img src={logo.url} alt="Moxera Agencies" className="h-full w-full rounded-md object-contain" />
+            <img src={logo} alt="Moxera Agencies" className="h-full w-full rounded-md object-contain" />
           </span>
           <span className="text-sm font-extrabold text-accent">MOXERA SITE</span>
         </div>
