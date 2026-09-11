@@ -52,7 +52,7 @@ function Home() {
             </div>
           </Link>
           <Button asChild size="sm" variant={username ? "secondary" : "default"} className="rounded-full px-5">
-            <Link to={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</Link>
+            <a href={username ? "/dashboard" : "https://moxeraagencies.com/register?ref=Mtukazi"}>{username ? "Dashboard" : "Jisajili"}</a>
           </Button>
         </div>
 
@@ -183,7 +183,7 @@ function Home() {
           </p>
           </div>
           <Button asChild className="h-12 rounded-full px-8 font-bold">
-            <Link to="/register">JISAJILI SASA</Link>
+            <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
           </Button>
         </div>
       </section>

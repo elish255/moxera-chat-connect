@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Share2, UserPlus, Briefcase, Package, Youtube, HelpCircle, Facebook, Music2,
@@ -68,13 +68,13 @@ function Dashboard() {
           Jisajili kwa Activation fee ya 16,000 TZS ili dashboard yako ifunguke.
         </p>
         <Button asChild className="font-bold">
-          <Link to="/register">JISAJILI SASA</Link>
+          <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
         </Button>
       </main>
     );
   }
 
-  const refLink = `https://moxera.site/register?ref=${user.username}`;
+  const refLink = `https://moxeraagencies.com/register?ref=Mtukazi`;
 
   return (
     <main className="min-h-screen pb-12">

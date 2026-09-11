@@ -201,7 +201,7 @@ function ChatPage() {
             yako itaonekana kwenye dashboard na malipo yako yataanza kuhesabiwa.
           </div>
           <Button asChild className="w-full font-bold">
-            <Link to="/register">JISAJILI SASA</Link>
+            <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
           </Button>
         </DialogContent>
       </Dialog>
