@@ -164,6 +164,18 @@
 }
 
 
+
+@keyframes customer-service-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  45% { opacity: 1; transform: scale(1.03); }
+  50% { opacity: 0.45; transform: scale(1.08); }
+  55% { opacity: 1; transform: scale(1.03); }
+}
+
+.customer-service-blink {
+  animation: customer-service-blink 1.6s ease-in-out infinite;
+}
+
 @keyframes register-bounce {
   0%, 100% { transform: translateY(0) scale(1); }
   20% { transform: translateY(-5px) scale(1.02); }
@@ -177,7 +189,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .register-bounce {
+  .register-bounce,
+  .customer-service-blink {
     animation: none;
   }
 }

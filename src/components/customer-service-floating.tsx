@@ -53,9 +53,9 @@ export function CustomerServiceFloating() {
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? "Funga Customer Service" : "Fungua Customer Service"}
         aria-expanded={open}
-        className="group relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-card shadow-2xl ring-2 ring-primary/30 transition-transform hover:scale-105"
+        className="customer-service-blink group relative flex h-[74px] w-[74px] items-center justify-center overflow-hidden rounded-full border-4 border-background bg-card shadow-2xl ring-2 ring-primary/40 transition-transform hover:scale-105 sm:h-20 sm:w-20"
       >
-        <img src="/customer-care.svg" alt="Customer Care" className="h-full w-full object-cover" />
+        <img src="/customer-care.png" alt="Customer Care" className="h-full w-full object-cover" />
         <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
           {open ? <X className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
         </span>

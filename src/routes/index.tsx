@@ -57,11 +57,37 @@ function Home() {
     ];
 
     let index = 0;
+
+    const playNotificationSound = () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextClass) return;
+        const audioContext = new AudioContextClass();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1320, audioContext.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.16, audioContext.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.22);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.24);
+        window.setTimeout(() => void audioContext.close(), 400);
+      } catch {
+        // Browsers can block notification audio until the user interacts with the page.
+      }
+    };
+
     const show = () => {
       const item = testimonials[index % testimonials.length];
+      playNotificationSound();
       toast.success(`💰 ${item.name}`, {
         description: `${item.text} • ${item.amount} TZS`,
         duration: 5000,
+        className: "!bg-primary !text-primary-foreground !border-primary/70 !shadow-2xl",
       });
       index += 1;
     };
@@ -208,19 +234,21 @@ function Home() {
       </section>
 
       <section className="mx-auto mt-12 max-w-5xl px-5 sm:px-8">
-        <div className="grid gap-6 bg-panel p-6 text-panel-foreground shadow-lg sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+        <div className="grid gap-6 rounded-3xl bg-primary p-6 text-primary-foreground shadow-2xl ring-1 ring-primary/30 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
           <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Kuanza kulipwa</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground/80">Kuanza kulipwa</p>
           <p className="mt-2 font-display text-3xl">
             Activation fee ya {ACTIVATION_FEE.toLocaleString()} TZS
           </p>
-          <p className="mt-2 max-w-lg text-sm text-panel-foreground/65">
+          <p className="mt-2 max-w-lg text-sm text-primary-foreground/85">
             Malipo haya ni ya mara moja, yanakufungulia akaunti ya kuchat na kulipwa.
           </p>
           </div>
-          <Button asChild className="register-bounce h-16 min-w-52 rounded-full px-10 text-lg font-extrabold shadow-xl">
-            <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
-          </Button>
+          <div className="rounded-2xl bg-primary-foreground/15 p-2 shadow-inner ring-1 ring-primary-foreground/20">
+            <Button asChild className="register-bounce h-16 min-w-52 rounded-xl bg-white px-10 text-lg font-extrabold text-primary shadow-xl hover:bg-white/90">
+              <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
+            </Button>
+          </div>
         </div>
       </section>
 
