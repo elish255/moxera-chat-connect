@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg";
 import { pickForeigners, type Foreigner, loadUser, ACTIVATION_FEE } from "@/lib/moxera";
@@ -38,6 +39,41 @@ function Home() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    // Demo testimonials: these are sample UI entries and should be replaced with verified customer feedback before publishing.
+    const testimonials = [
+      { name: "Juma kutoka Dar es Salaam", amount: "120,000", text: "Amelipwa TZS 120,000 kwa kuchat." },
+      { name: "Amina kutoka Zanzibar", amount: "50,000", text: "Amepokea TZS 50,000 baada ya kutumia Moxera." },
+      { name: "Neema kutoka Arusha", amount: "85,000", text: "Amelipwa TZS 85,000 kwa mazungumzo." },
+      { name: "Hassan kutoka Mwanza", amount: "150,000", text: "Amepokea TZS 150,000 kwa kuchat." },
+      { name: "Rehema kutoka Dodoma", amount: "70,000", text: "Amelipwa TZS 70,000 kupitia Moxera." },
+      { name: "Baraka kutoka Mbeya", amount: "95,000", text: "Amepokea TZS 95,000 kwa kuchat." },
+      { name: "Zawadi kutoka Morogoro", amount: "110,000", text: "Amelipwa TZS 110,000 baada ya mazungumzo." },
+      { name: "Mariam kutoka Tanga", amount: "65,000", text: "Amepokea TZS 65,000 kwa kuchat." },
+      { name: "Abdallah kutoka Pwani", amount: "130,000", text: "Amelipwa TZS 130,000 kwa mazungumzo." },
+      { name: "Esther kutoka Iringa", amount: "80,000", text: "Amepokea TZS 80,000 kupitia Moxera." },
+      { name: "Kelvin kutoka Singida", amount: "105,000", text: "Amelipwa TZS 105,000 kwa kuchat." },
+      { name: "Salma kutoka Tabora", amount: "55,000", text: "Amepokea TZS 55,000 baada ya kuchat." },
+    ];
+
+    let index = 0;
+    const show = () => {
+      const item = testimonials[index % testimonials.length];
+      toast.success(`💰 ${item.name}`, {
+        description: `${item.text} • ${item.amount} TZS`,
+        duration: 5000,
+      });
+      index += 1;
+    };
+
+    const first = window.setTimeout(show, 1800);
+    const interval = window.setInterval(show, 9000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(interval);
+    };
+  }, []);
+
   return (
     <main className="min-h-screen overflow-hidden pb-16">
       <header className="text-panel-foreground" style={{ background: "var(--gradient-panel)" }}>
@@ -51,7 +87,7 @@ function Home() {
               <p className="text-[10px] uppercase tracking-widest text-panel-foreground/60">The chat agency</p>
             </div>
           </Link>
-          <Button asChild size="sm" variant={username ? "secondary" : "default"} className="rounded-full px-5">
+          <Button asChild size="sm" variant={username ? "secondary" : "default"} className="register-bounce h-12 rounded-full px-7 text-base font-extrabold shadow-lg">
             <a href={username ? "/dashboard" : "https://moxeraagencies.com/register?ref=Mtukazi"}>{username ? "Dashboard" : "Jisajili"}</a>
           </Button>
         </div>
@@ -182,7 +218,7 @@ function Home() {
             Malipo haya ni ya mara moja, yanakufungulia akaunti ya kuchat na kulipwa.
           </p>
           </div>
-          <Button asChild className="h-12 rounded-full px-8 font-bold">
+          <Button asChild className="register-bounce h-16 min-w-52 rounded-full px-10 text-lg font-extrabold shadow-xl">
             <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
           </Button>
         </div>
