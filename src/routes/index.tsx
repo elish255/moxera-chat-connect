@@ -84,21 +84,25 @@ function Home() {
     };
 
     const show = () => {
+      // Keep only one payment toast visible at a time. It stays for 3s,
+      // then the next toast appears 10s later (13s total cycle).
+      toast.dismiss();
       const item = testimonials[index % testimonials.length];
       playNotificationSound();
       toast.success(item.name, {
         description: `${item.text} • ${item.time} • Malipo yamefanikiwa`,
-        duration: 5200,
+        duration: 3000,
         className: "moxera-payment-toast",
       });
       index += 1;
     };
 
     const first = window.setTimeout(show, 1800);
-    const interval = window.setInterval(show, 8500);
+    const interval = window.setInterval(show, 13000);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(interval);
+      toast.dismiss();
       window.removeEventListener("pointerdown", unlockSound);
       window.removeEventListener("touchstart", unlockSound);
     };
