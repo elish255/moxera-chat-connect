@@ -40,63 +40,67 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    // Demo testimonials: these are sample UI entries and should be replaced with verified customer feedback before publishing.
+    // Demo testimonials: sample UI entries; replace with verified customer feedback before publishing.
     const testimonials = [
-      { name: "Juma kutoka Dar es Salaam", amount: "120,000", text: "Amelipwa TZS 120,000 kwa kuchat." },
-      { name: "Amina kutoka Zanzibar", amount: "50,000", text: "Amepokea TZS 50,000 baada ya kutumia Moxera." },
-      { name: "Neema kutoka Arusha", amount: "85,000", text: "Amelipwa TZS 85,000 kwa mazungumzo." },
-      { name: "Hassan kutoka Mwanza", amount: "150,000", text: "Amepokea TZS 150,000 kwa kuchat." },
-      { name: "Rehema kutoka Dodoma", amount: "70,000", text: "Amelipwa TZS 70,000 kupitia Moxera." },
-      { name: "Baraka kutoka Mbeya", amount: "95,000", text: "Amepokea TZS 95,000 kwa kuchat." },
-      { name: "Zawadi kutoka Morogoro", amount: "110,000", text: "Amelipwa TZS 110,000 baada ya mazungumzo." },
-      { name: "Mariam kutoka Tanga", amount: "65,000", text: "Amepokea TZS 65,000 kwa kuchat." },
-      { name: "Abdallah kutoka Pwani", amount: "130,000", text: "Amelipwa TZS 130,000 kwa mazungumzo." },
-      { name: "Esther kutoka Iringa", amount: "80,000", text: "Amepokea TZS 80,000 kupitia Moxera." },
-      { name: "Kelvin kutoka Singida", amount: "105,000", text: "Amelipwa TZS 105,000 kwa kuchat." },
-      { name: "Salma kutoka Tabora", amount: "55,000", text: "Amepokea TZS 55,000 baada ya kuchat." },
+      { name: "Juma Malecela (+255 763...267)", amount: "88,000", text: "ametoa TSh 88,000 akiwa Iringa", time: "Dakika 9 zilizopita" },
+      { name: "Amina Hassan (+255 754...875)", amount: "50,000", text: "amepokea TSh 50,000 kutoka Zanzibar", time: "Dakika 12 zilizopita" },
+      { name: "Neema Joseph (+255 713...402)", amount: "120,000", text: "amelipwa TSh 120,000 kwa kuchat", time: "Dakika 15 zilizopita" },
+      { name: "Hassan Ally (+255 768...119)", amount: "150,000", text: "amepokea TSh 150,000 kwa mazungumzo", time: "Dakika 18 zilizopita" },
+      { name: "Rehema John (+255 655...831)", amount: "70,000", text: "amelipwa TSh 70,000 kupitia Moxera", time: "Dakika 21 zilizopita" },
+      { name: "Baraka Mussa (+255 719...544)", amount: "95,000", text: "amepokea TSh 95,000 kwa kuchat", time: "Dakika 24 zilizopita" },
+      { name: "Zawadi Said (+255 742...901)", amount: "110,000", text: "amelipwa TSh 110,000 baada ya mazungumzo", time: "Dakika 27 zilizopita" },
+      { name: "Mariam Omar (+255 714...620)", amount: "65,000", text: "amepokea TSh 65,000 kwa kuchat", time: "Dakika 30 zilizopita" },
+      { name: "Abdallah Salim (+255 756...315)", amount: "130,000", text: "amelipwa TSh 130,000 kwa mazungumzo", time: "Dakika 34 zilizopita" },
+      { name: "Esther Peter (+255 687...208)", amount: "80,000", text: "amepokea TSh 80,000 kupitia Moxera", time: "Dakika 37 zilizopita" },
+      { name: "Kelvin Simon (+255 625...774)", amount: "105,000", text: "amelipwa TSh 105,000 kwa kuchat", time: "Dakika 41 zilizopita" },
+      { name: "Salma Juma (+255 699...462)", amount: "55,000", text: "amepokea TSh 55,000 baada ya kuchat", time: "Dakika 45 zilizopita" },
     ];
 
     let index = 0;
+    let audio: HTMLAudioElement | null = null;
+
+    const unlockSound = () => {
+      if (!audio) {
+        audio = new Audio("/notification.wav");
+        audio.preload = "auto";
+        audio.volume = 0.55;
+      }
+      // Prime the audio element after a real user gesture so mobile browsers allow later playback.
+      void audio.play().then(() => {
+        audio?.pause();
+        if (audio) audio.currentTime = 0;
+      }).catch(() => undefined);
+      window.removeEventListener("pointerdown", unlockSound);
+      window.removeEventListener("touchstart", unlockSound);
+    };
+
+    window.addEventListener("pointerdown", unlockSound, { once: true });
+    window.addEventListener("touchstart", unlockSound, { once: true });
 
     const playNotificationSound = () => {
-      try {
-        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) return;
-        const audioContext = new AudioContextClass();
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1320, audioContext.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.16, audioContext.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.22);
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.24);
-        window.setTimeout(() => void audioContext.close(), 400);
-      } catch {
-        // Browsers can block notification audio until the user interacts with the page.
-      }
+      if (!audio) return;
+      audio.currentTime = 0;
+      void audio.play().catch(() => undefined);
     };
 
     const show = () => {
       const item = testimonials[index % testimonials.length];
       playNotificationSound();
-      toast.success(`💰 ${item.name}`, {
-        description: `${item.text} • ${item.amount} TZS`,
-        duration: 5000,
-        className: "!bg-primary !text-primary-foreground !border-primary/70 !shadow-2xl",
+      toast.success(item.name, {
+        description: `${item.text} • ${item.time} • Malipo yamefanikiwa`,
+        duration: 5200,
+        className: "moxera-payment-toast",
       });
       index += 1;
     };
 
     const first = window.setTimeout(show, 1800);
-    const interval = window.setInterval(show, 9000);
+    const interval = window.setInterval(show, 8500);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(interval);
+      window.removeEventListener("pointerdown", unlockSound);
+      window.removeEventListener("touchstart", unlockSound);
     };
   }, []);
 

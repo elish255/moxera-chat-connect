@@ -7,14 +7,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       className="toaster group"
       position="top-center"
-      offset={{ top: "18px" }}
+      offset={{ top: "92px" }}
       toastOptions={{
         classNames: {
           toast:
-            "group toast !bg-primary !text-primary-foreground !border-primary/70 !shadow-2xl !rounded-2xl",
-          title: "!text-primary-foreground !font-extrabold",
-          description: "!text-primary-foreground/90",
-          icon: "!text-primary-foreground",
+            "group toast moxera-payment-toast !text-white !border-white/30 !shadow-2xl !rounded-[22px]",
+          title: "!text-white !font-extrabold !text-base",
+          description: "!text-white/90 !text-sm",
+          icon: "!text-white",
           actionButton: "group-[.toast]:!bg-white group-[.toast]:!text-primary",
           cancelButton: "group-[.toast]:!bg-white/20 group-[.toast]:!text-primary-foreground",
         },

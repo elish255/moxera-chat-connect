@@ -165,15 +165,20 @@
 
 
 
-@keyframes customer-service-blink {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  45% { opacity: 1; transform: scale(1.03); }
-  50% { opacity: 0.45; transform: scale(1.08); }
-  55% { opacity: 1; transform: scale(1.03); }
+@keyframes customer-service-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  8% { transform: translateY(-8px) scale(1.02); }
+  16% { transform: translateY(-24px) scale(1.04); }
+  24% { transform: translateY(-8px) scale(1.02); }
+  32% { transform: translateY(0) scale(1); }
+  38% { transform: translateY(-5px) scale(1.01); }
+  44% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 .customer-service-blink {
-  animation: customer-service-blink 1.6s ease-in-out infinite;
+  animation: customer-service-bounce 2.8s ease-in-out infinite;
+  transform-origin: center bottom;
 }
 
 @keyframes register-bounce {
@@ -192,5 +197,33 @@
   .register-bounce,
   .customer-service-blink {
     animation: none;
+  }
+}
+
+
+/* Payment toast inspired by the supplied Tvideo reference: compact, bright, top-of-content notification. */
+.moxera-payment-toast {
+  width: min(640px, calc(100vw - 32px)) !important;
+  min-height: 108px !important;
+  padding: 18px 20px !important;
+  background: linear-gradient(135deg, oklch(0.34 0.20 250), oklch(0.60 0.22 300)) !important;
+  border: 2px solid oklch(0.96 0.08 300 / 0.55) !important;
+  box-shadow: 0 16px 36px -14px oklch(0.15 0.12 260 / 0.72), inset 0 0 0 1px oklch(1 0 0 / 0.10) !important;
+}
+
+.moxera-payment-toast [data-icon] {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.16);
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 640px) {
+  .moxera-payment-toast {
+    width: calc(100vw - 32px) !important;
+    min-height: 112px !important;
+    padding: 16px !important;
   }
 }
