@@ -162,3 +162,22 @@
     letter-spacing: 0;
   }
 }
+
+
+@keyframes register-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-5px) scale(1.02); }
+  40% { transform: translateY(0) scale(1); }
+  60% { transform: translateY(-3px) scale(1.01); }
+  80% { transform: translateY(0) scale(1); }
+}
+
+.register-bounce {
+  animation: register-bounce 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-bounce {
+    animation: none;
+  }
+}
