@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, Lock } from "lucide-react";
-import { getForeigner, loadUser, ACTIVATION_FEE, type MoxeraUser } from "@/lib/moxera";
+import { getForeigner, ACTIVATION_FEE, type MoxeraUser } from "@/lib/moxera";
+import { getCurrentMoxeraUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,7 +50,7 @@ function ChatPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setUser(loadUser());
+    getCurrentMoxeraUser().then(setUser).catch(() => setUser(null));
   }, []);
 
   useEffect(() => {
@@ -201,7 +202,7 @@ function ChatPage() {
             yako itaonekana kwenye dashboard na malipo yako yataanza kuhesabiwa.
           </div>
           <Button asChild className="w-full font-bold">
-            <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
+            <a href="/register">JISAJILI SASA</a>
           </Button>
         </DialogContent>
       </Dialog>

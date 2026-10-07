@@ -308,11 +308,15 @@ export const TESTIMONIALS: Testimonial[] = [
 export const ACTIVATION_FEE = 16000;
 
 export type MoxeraUser = {
+  id?: string;
   fullName: string;
   username: string;
   phone: string;
   email: string;
   country: string;
+  status?: "pending" | "active" | "banned" | "inactive";
+  paymentStatus?: "unpaid" | "pending" | "paid" | "rejected";
+  balance?: number;
   registeredAt: string;
 };
 
@@ -320,30 +324,10 @@ const KEY = "moxera_user";
 
 export function loadUser(): MoxeraUser | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as MoxeraUser) : null;
-  } catch {
-    return null;
-  }
+  try { const raw = window.localStorage.getItem(KEY); return raw ? JSON.parse(raw) as MoxeraUser : null; }
+  catch { return null; }
 }
+export function saveUser(user: MoxeraUser) { window.localStorage.setItem(KEY, JSON.stringify(user)); }
+export function clearUser() { window.localStorage.removeItem(KEY); }
 
-export function saveUser(user: MoxeraUser) {
-  window.localStorage.setItem(KEY, JSON.stringify(user));
-}
-
-export function clearUser() {
-  window.localStorage.removeItem(KEY);
-}
-
-export const COUNTRIES = [
-  "Tanzania",
-  "Kenya",
-  "Uganda",
-  "Rwanda",
-  "Burundi",
-  "DR Congo",
-  "Zambia",
-  "Malawi",
-  "Msumbiji",
-];
+export const COUNTRIES = ["Tanzania","Kenya","Uganda","Rwanda","Burundi","DR Congo","Zambia","Malawi","Msumbiji"];

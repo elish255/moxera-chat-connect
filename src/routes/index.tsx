@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg";
-import { pickForeigners, type Foreigner, loadUser, ACTIVATION_FEE } from "@/lib/moxera";
+import { pickForeigners, type Foreigner, ACTIVATION_FEE } from "@/lib/moxera";
+import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -34,9 +35,10 @@ function Home() {
 
   useEffect(() => {
     setList(pickForeigners(4));
-    setUsername(loadUser()?.username ?? null);
+    getCurrentMoxeraUser().then(u => setUsername(u?.username ?? null));
+    const unsub = subscribeAuth(() => getCurrentMoxeraUser().then(u => setUsername(u?.username ?? null)));
     const t = setInterval(() => setList(pickForeigners(4)), 8000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); unsub(); };
   }, []);
 
   useEffect(() => {
@@ -122,7 +124,7 @@ function Home() {
             </div>
           </Link>
           <Button asChild size="sm" variant={username ? "secondary" : "default"} className="register-bounce h-12 rounded-full px-7 text-base font-extrabold shadow-lg">
-            <a href={username ? "/dashboard" : "https://moxeraagencies.com/register?ref=Mtukazi"}>{username ? "Dashboard" : "Jisajili"}</a>
+            <a href={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</a>
           </Button>
         </div>
 
@@ -254,7 +256,7 @@ function Home() {
           </div>
           <div className="rounded-2xl bg-primary-foreground/15 p-2 shadow-inner ring-1 ring-primary-foreground/20">
             <Button asChild className="register-bounce h-16 min-w-52 rounded-xl bg-white px-10 text-lg font-extrabold text-primary shadow-xl hover:bg-white/90">
-              <a href="https://moxeraagencies.com/register?ref=Mtukazi">JISAJILI SASA</a>
+              <a href="/register">JISAJILI SASA</a>
             </Button>
           </div>
         </div>
