@@ -61,6 +61,40 @@ returns boolean
 language sql stable security definer set search_path=public
 as $$ select exists (select 1 from public.moxera_admins a where a.user_id = auth.uid()); $$;
 
+-- Create the Moxera profile from the Auth user. This runs with definer
+-- privileges so it also works when Supabase email confirmation is enabled
+-- and the newly registered user does not yet have an authenticated session.
+create or replace function public.moxera_handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.moxera_users (id, full_name, username, phone, email, country)
+  values (
+    new.id,
+    coalesce(nullif(new.raw_user_meta_data->>'full_name', ''), 'Moxera User'),
+    coalesce(nullif(new.raw_user_meta_data->>'username', ''), 'user_' || substr(replace(new.id::text, '-', ''), 1, 8)),
+    coalesce(nullif(new.raw_user_meta_data->>'phone', ''), ''),
+    lower(new.email),
+    coalesce(nullif(new.raw_user_meta_data->>'country', ''), 'Tanzania')
+  )
+  on conflict (id) do update set
+    full_name = excluded.full_name,
+    phone = excluded.phone,
+    email = excluded.email,
+    country = excluded.country,
+    updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_moxera on auth.users;
+create trigger on_auth_user_created_moxera
+after insert on auth.users
+for each row execute function public.moxera_handle_new_user();
+
 drop policy if exists "moxera users own select" on public.moxera_users;
 create policy "moxera users own select" on public.moxera_users for select using (id = auth.uid() or public.moxera_is_admin());
 
