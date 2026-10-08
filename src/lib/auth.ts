@@ -8,20 +8,17 @@ export async function registerMoxeraUser(data: {
   const db = requireSupabase();
   const normalizedPhone = normalizeTanzaniaPhone(data.phone);
   const { data: auth, error } = await db.auth.signUp({
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     password: data.password,
-    options: { data: { full_name: data.fullName, username: data.username, phone: normalizedPhone, country: data.country } },
+    options: { data: { full_name: data.fullName, username: data.username.trim(), phone: normalizedPhone, country: data.country } },
   });
   if (error) throw error;
   if (!auth.user) throw new Error("Usajili haujakamilika.");
-  const { error: profileError } = await db.from("moxera_users").insert({
-    id: auth.user.id, full_name: data.fullName, username: data.username.trim(),
-    phone: normalizedPhone, email: data.email.trim().toLowerCase(), country: data.country,
-  });
-  if (profileError) {
-    await db.auth.signOut();
-    throw profileError;
-  }
+
+  // The moxera_users row is created by a SECURITY DEFINER trigger on
+  // auth.users. This is intentional: when email confirmation is enabled,
+  // signUp() may not return an authenticated session, so a client-side
+  // INSERT would be rejected by RLS with "permission denied".
   return auth.user;
 }
 
