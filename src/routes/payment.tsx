@@ -196,7 +196,6 @@ function Payment() {
             className="h-12 text-base"
             disabled={busy}
           />
-          <p className="mt-2 text-xs text-muted-foreground">Mfumo utaibadilisha automatic kuwa format ya Tanzania kabla ya kutuma ombi la malipo.</p>
         </div>
         <Button disabled={busy || !phone.trim()} onClick={start} className="mt-4 h-12 w-full font-bold">{busy ? 'Inaandaa malipo…' : 'LIPA SASA'}</Button>
       </>}
