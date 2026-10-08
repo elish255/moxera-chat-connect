@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentMoxeraUser } from '@/lib/auth';
 import { normalizeTanzaniaPhone } from '@/lib/phone';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const FEE = Number(import.meta.env.VITE_ACTIVATION_FEE || 16000);
 
@@ -37,7 +38,14 @@ export const Route = createFileRoute('/payment')({
             if (user.status === 'banned') return Response.json({ error: 'Akaunti yako imezuiwa.' }, { status: 403 });
             if (user.payment_status === 'paid') return Response.json({ error: 'Malipo haya tayari yamekamilika.' }, { status: 409 });
 
-            const phone = normalizeTanzaniaPhone(user.phone);
+            const requestedPhone = String(body?.phone ?? '').trim();
+            if (!requestedPhone) return Response.json({ error: 'Weka namba ya simu utakayotumia kulipia.' }, { status: 400 });
+            let phone: string;
+            try {
+              phone = normalizeTanzaniaPhone(requestedPhone);
+            } catch {
+              return Response.json({ error: 'Weka namba sahihi ya Tanzania, kwa mfano 0787483953.' }, { status: 400 });
+            }
             const amount = Number(process.env.VITE_ACTIVATION_FEE ?? 16000);
             const reference = `MX-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
             const upstream = await fetch('https://fimipay.com/api/v1/payment/create_order', {
@@ -155,8 +163,9 @@ function Payment() {
   async function start() {
     setBusy(true);
     try {
-      normalizeTanzaniaPhone(phone);
-      const result = await paymentRequest({ action: 'create' });
+      const normalizedPhone = normalizeTanzaniaPhone(phone);
+      setPhone(normalizedPhone);
+      const result = await paymentRequest({ action: 'create', phone: normalizedPhone });
       setOrderId(result.orderId);
       setStatus(result.paymentStatus || 'PENDING');
       toast.success('Ombi la malipo limetumwa kwenye simu yako.');
@@ -169,8 +178,28 @@ function Payment() {
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><CreditCard className="h-8 w-8 text-primary" /></div>
       <h1 className="mt-4 text-2xl font-extrabold text-accent">Activate Account</h1>
       <p className="mt-2 text-sm text-muted-foreground">Lipa ada ya kuanzisha account yako.</p>
-      <div className="my-6 rounded-2xl bg-secondary p-5"><p className="text-xs text-muted-foreground">Activation Fee</p><p className="mt-1 text-3xl font-extrabold">{FEE.toLocaleString()} TZS</p><p className="mt-2 text-xs text-muted-foreground">Namba ya malipo: <b>{phone}</b></p></div>
-      {!orderId && !paid && !failed && <Button disabled={busy} onClick={start} className="h-12 w-full font-bold">{busy ? 'Inaandaa malipo…' : 'LIPA SASA'}</Button>}
+      <div className="my-6 rounded-2xl bg-secondary p-5">
+        <p className="text-xs text-muted-foreground">Activation Fee</p>
+        <p className="mt-1 text-3xl font-extrabold">{FEE.toLocaleString()} TZS</p>
+      </div>
+      {!orderId && !paid && !failed && <>
+        <div className="text-left">
+          <label htmlFor="payment-phone" className="mb-2 block text-sm font-semibold">Namba ya simu ya kulipia</label>
+          <Input
+            id="payment-phone"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="0787483953"
+            className="h-12 text-base"
+            disabled={busy}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">Mfumo utaibadilisha automatic kuwa format ya Tanzania kabla ya kutuma ombi la malipo.</p>
+        </div>
+        <Button disabled={busy || !phone.trim()} onClick={start} className="mt-4 h-12 w-full font-bold">{busy ? 'Inaandaa malipo…' : 'LIPA SASA'}</Button>
+      </>}
       {orderId && !paid && !failed && <div className="rounded-2xl bg-secondary p-5"><Loader2 className="mx-auto h-7 w-7 animate-spin text-primary"/><p className="mt-2 font-bold">Subiri uthibitisho wa malipo…</p><p className="mt-1 text-xs text-muted-foreground">Status: {status}. Mfumo unaangalia malipo moja kwa moja.</p></div>}
       {paid && <div className="rounded-2xl bg-secondary p-5"><CheckCircle2 className="mx-auto h-8 w-8 text-primary"/><p className="mt-2 font-bold">Malipo yamefanikiwa</p><p className="mt-1 text-sm text-muted-foreground">Malipo yamethibitishwa. Account yako itaendelea baada ya activation ya admin.</p><Button onClick={() => nav({ to: '/dashboard' })} variant="outline" className="mt-4">Nenda Dashboard</Button></div>}
       {failed && <div className="rounded-2xl bg-secondary p-5"><p className="font-bold">Malipo hayajakamilika</p><p className="mt-1 text-sm text-muted-foreground">Unaweza kujaribu tena.</p><Button onClick={() => { setOrderId(null); setFailed(false); }} className="mt-4">Jaribu tena</Button></div>}
