@@ -26,10 +26,15 @@ export async function loginMoxeraUser(identifier: string, password: string) {
   const db = requireSupabase();
   let email = identifier.trim();
   if (!email.includes("@")) {
-    const { data, error } = await db.from("moxera_users").select("email").eq("username", email).maybeSingle();
+    // Username lookup must happen before authentication, so it cannot query
+    // moxera_users directly under the table's owner-only RLS policy.
+    // The narrowly-scoped RPC performs the lookup server-side.
+    const { data, error } = await db.rpc("moxera_login_email_by_username", {
+      p_username: email,
+    });
     if (error) throw error;
-    if (!data?.email) throw new Error("Username haijapatikana.");
-    email = data.email;
+    if (typeof data !== "string" || !data) throw new Error("Username au password si sahihi.");
+    email = data;
   }
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;

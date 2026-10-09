@@ -79,9 +79,9 @@ export const Route = createFileRoute('/payment')({
 
             const paymentStatus = String(payload?.data?.payment_status ?? 'PENDING').toUpperCase();
             const transactionId = payload?.data?.transid ? String(payload.data.transid) : null;
-            if (paymentStatus === 'SUCCESS') {
+            if (['SUCCESS', 'COMPLETED'].includes(paymentStatus)) {
               await db.from('moxera_payments').update({ status: 'paid', transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
-              await db.from('moxera_users').update({ payment_status: 'paid', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
+              await db.from('moxera_users').update({ payment_status: 'paid', status: 'active', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
             } else if (['CANCELLED', 'USERCANCELLED', 'REJECTED'].includes(paymentStatus)) {
               await db.from('moxera_payments').update({ status: 'rejected', transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
               await db.from('moxera_users').update({ payment_status: 'rejected', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
@@ -149,7 +149,7 @@ function Payment() {
         const result = await paymentRequest({ action: 'status', orderId });
         if (cancelled) return;
         setStatus(result.paymentStatus);
-        if (result.paymentStatus === 'SUCCESS') { setPaid(true); toast.success('Malipo yamefanikiwa!'); return; }
+        if (['SUCCESS', 'COMPLETED'].includes(String(result.paymentStatus).toUpperCase())) { setPaid(true); toast.success('Malipo yamefanikiwa! Akaunti yako imewezeshwa.'); nav({ to: '/dashboard' }); return; }
         if (['CANCELLED', 'USERCANCELLED', 'REJECTED'].includes(result.paymentStatus)) { setFailed(true); return; }
       } catch (error) {
         if (attempts >= 40) { toast.error(error instanceof Error ? error.message : 'Imeshindikana kuangalia malipo.'); }
@@ -158,7 +158,7 @@ function Payment() {
     };
     void poll();
     return () => { cancelled = true; };
-  }, [orderId, paid, failed]);
+  }, [orderId, paid, failed, nav]);
 
   async function start() {
     setBusy(true);
@@ -200,7 +200,7 @@ function Payment() {
         <Button disabled={busy || !phone.trim()} onClick={start} className="mt-4 h-12 w-full font-bold">{busy ? 'Inaandaa malipo…' : 'LIPA SASA'}</Button>
       </>}
       {orderId && !paid && !failed && <div className="rounded-2xl bg-secondary p-5"><Loader2 className="mx-auto h-7 w-7 animate-spin text-primary"/><p className="mt-2 font-bold">Subiri uthibitisho wa malipo…</p><p className="mt-1 text-xs text-muted-foreground">Status: {status}. Mfumo unaangalia malipo moja kwa moja.</p></div>}
-      {paid && <div className="rounded-2xl bg-secondary p-5"><CheckCircle2 className="mx-auto h-8 w-8 text-primary"/><p className="mt-2 font-bold">Malipo yamefanikiwa</p><p className="mt-1 text-sm text-muted-foreground">Malipo yamethibitishwa. Account yako itaendelea baada ya activation ya admin.</p><Button onClick={() => nav({ to: '/dashboard' })} variant="outline" className="mt-4">Nenda Dashboard</Button></div>}
+      {paid && <div className="rounded-2xl bg-secondary p-5"><CheckCircle2 className="mx-auto h-8 w-8 text-primary"/><p className="mt-2 font-bold">Malipo yamefanikiwa</p><p className="mt-1 text-sm text-muted-foreground">Malipo yamethibitishwa na akaunti yako imewezeshwa. Unaweza kuendelea kuchat na kupata malipo.</p><Button onClick={() => nav({ to: '/dashboard' })} variant="outline" className="mt-4">Nenda Dashboard</Button></div>}
       {failed && <div className="rounded-2xl bg-secondary p-5"><p className="font-bold">Malipo hayajakamilika</p><p className="mt-1 text-sm text-muted-foreground">Unaweza kujaribu tena.</p><Button onClick={() => { setOrderId(null); setFailed(false); }} className="mt-4">Jaribu tena</Button></div>}
       <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" /> Malipo salama</div>
     </div>
