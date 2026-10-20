@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, Lock } from "lucide-react";
 import { getForeigner, ACTIVATION_FEE, type MoxeraUser } from "@/lib/moxera";
 import { getCurrentMoxeraUser } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +39,18 @@ type Msg = { from: "them" | "me"; text: string; time: string };
 const now = () =>
   new Date().toLocaleTimeString("sw-TZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 
+function makeRealisticReply(input: string, fallback: string) {
+  const text = input.toLowerCase();
+  if (text.includes("habari") || text.includes("hujambo") || text.includes("mambo")) return "Nzuri sana, asante! Na wewe hali yako ikoje? Bado najifunza salamu za Kiswahili 😊";
+  if (text.includes("asante")) return "Karibu sana! Nimejifunza kuwa ‘asante’ ni neno muhimu. Naweza kujibu ‘karibu’, sivyo?";
+  if (text.includes("karibu")) return "Sasa nimeelewa tofauti yake kidogo. ‘Karibu’ kwa mtu mmoja, na ‘karibuni’ kwa watu wengi, nimekosea?";
+  if (text.includes("shikamoo")) return "Nimewahi kusikia ‘shikamoo’! Ni salamu ya heshima kwa mtu mkubwa, halafu anajibu ‘marahaba’, sivyo?";
+  if (text.includes("bei") || text.includes("pesa") || text.includes("gharama")) return "Neno la bei ninalijua! Nikifika sokoni naweza kusema ‘bei gani?’ Je, hilo ni sahihi?";
+  if (text.includes("tanzania") || text.includes("dar es salaam") || text.includes("zanzibar")) return "Ningependa sana kutembelea Tanzania. Ni chakula gani cha kienyeji unanishauri nijaribu kwanza?";
+  if (text.includes("ndiyo") || text.includes("ndio")) return "Aah, sawa nimekuelewa. Naweza kujaribu kutumia neno hilo kwenye sentensi nyingine?";
+  return fallback;
+}
+
 function ChatPage() {
   const { id } = Route.useParams();
   const foreigner = getForeigner(id);
@@ -48,6 +62,8 @@ function ChatPage() {
   const [user, setUser] = useState<MoxeraUser | null>(null);
   const [sentCount, setSentCount] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
+  const chatKey = useRef(`${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const paidRef = useRef(false);
 
   useEffect(() => {
     getCurrentMoxeraUser().then(setUser).catch(() => setUser(null));
@@ -95,9 +111,14 @@ function ChatPage() {
       return;
     }
 
-    const reply =
-      foreigner.replies[sentCount % foreigner.replies.length] ?? "Asante sana rafiki!";
-    setSentCount((c) => c + 1);
+    const nextCount = sentCount + 1;
+    const reply = makeRealisticReply(text, foreigner.replies[sentCount % foreigner.replies.length] ?? "Asante sana rafiki!");
+    setSentCount(nextCount);
+    if (nextCount >= 10 && !paidRef.current && user.id && supabase) {
+      paidRef.current = true;
+      supabase.rpc("moxera_complete_chat", { p_foreigner_id: foreigner.id, p_amount: foreigner.rate, p_chat_key: chatKey.current })
+        .then(({ error }) => { if (error) { paidRef.current = false; toast.error("Malipo hayajakamilika. Tafadhali jaribu tena."); } else { toast.success(`Hongera! TZS ${foreigner.rate.toLocaleString()} imeongezwa kwenye salio lako.`); } });
+    }
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
