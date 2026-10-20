@@ -129,7 +129,7 @@ function ChatPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-card px-4 py-3 shadow-sm">
-        <button onClick={() => navigate({ to: "/" })} aria-label="Rudi">
+        <button onClick={() => navigate({ to: "/dashboard" })} aria-label="Rudi">
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
         <div className="relative shrink-0">

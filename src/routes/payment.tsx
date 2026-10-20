@@ -8,7 +8,8 @@ import { normalizeTanzaniaPhone } from '@/lib/phone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const FEE = Number(import.meta.env.VITE_ACTIVATION_FEE || 16000);
+const ACTIVATION_FEE = Number(import.meta.env.VITE_ACTIVATION_FEE || 16000);
+const PLAN_FEES: Record<string, number> = { activation: ACTIVATION_FEE, premium: 32000, vip: 35500 };
 
 export const Route = createFileRoute('/payment')({
   server: {
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/payment')({
         try {
           const body = await request.json().catch(() => ({}));
           const action = String(body?.action ?? 'create');
+          const plan = ['activation','premium','vip'].includes(String(body?.plan ?? 'activation')) ? String(body?.plan ?? 'activation') : 'activation';
           const authHeader = request.headers.get('authorization') ?? '';
           const token = authHeader.replace(/^Bearer\s+/i, '').trim();
           const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -33,10 +35,12 @@ export const Route = createFileRoute('/payment')({
           const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
           if (action === 'create') {
-            const { data: user, error: userError } = await db.from('moxera_users').select('id,full_name,email,phone,status,payment_status').eq('id', authData.user.id).maybeSingle();
+            const { data: user, error: userError } = await db.from('moxera_users').select('id,full_name,email,phone,status,payment_status,membership_level').eq('id', authData.user.id).maybeSingle();
             if (userError || !user) return Response.json({ error: 'User profile not found.' }, { status: 404 });
             if (user.status === 'banned') return Response.json({ error: 'Akaunti yako imezuiwa.' }, { status: 403 });
-            if (user.payment_status === 'paid') return Response.json({ error: 'Malipo haya tayari yamekamilika.' }, { status: 409 });
+            if (plan === 'activation' && user.payment_status === 'paid') return Response.json({ error: 'Malipo ya activation tayari yamekamilika.' }, { status: 409 });
+            if (plan === 'premium' && user.membership_level === 'premium') return Response.json({ error: 'Account yako tayari ni Premium.' }, { status: 409 });
+            if (plan === 'vip' && user.membership_level === 'vip') return Response.json({ error: 'Account yako tayari ni VIP.' }, { status: 409 });
 
             const requestedPhone = String(body?.phone ?? '').trim();
             if (!requestedPhone) return Response.json({ error: 'Weka namba ya simu utakayotumia kulipia.' }, { status: 400 });
@@ -46,7 +50,7 @@ export const Route = createFileRoute('/payment')({
             } catch {
               return Response.json({ error: 'Weka namba sahihi ya Tanzania, kwa mfano 0787483953.' }, { status: 400 });
             }
-            const amount = Number(process.env.VITE_ACTIVATION_FEE ?? 16000);
+            const amount = plan === 'premium' ? 32000 : plan === 'vip' ? 35500 : Number(process.env.VITE_ACTIVATION_FEE ?? 16000);
             const reference = `MX-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
             const upstream = await fetch('https://fimipay.com/api/v1/payment/create_order', {
               method: 'POST',
@@ -57,9 +61,9 @@ export const Route = createFileRoute('/payment')({
             if (!upstream.ok || payload?.status !== 'success' || !payload?.data?.order_id) return Response.json({ error: payload?.message || 'Imeshindikana kuanzisha malipo.' }, { status: 502 });
 
             const orderId = String(payload.data.order_id);
-            const { error: insertError } = await db.from('moxera_payments').insert({ user_id: user.id, amount, currency: 'TZS', provider: 'mobile', reference, external_order_id: orderId, status: 'pending' });
+            const { error: insertError } = await db.from('moxera_payments').insert({ user_id: user.id, amount, currency: 'TZS', provider: 'mobile', plan, reference, external_order_id: orderId, status: 'pending' });
             if (insertError) return Response.json({ error: 'Malipo yameanzishwa lakini kumbukumbu haikuhifadhiwa.' }, { status: 500 });
-            await db.from('moxera_users').update({ payment_status: 'pending', phone, updated_at: new Date().toISOString() }).eq('id', user.id);
+            if (plan === 'activation') await db.from('moxera_users').update({ payment_status: 'pending', phone, updated_at: new Date().toISOString() }).eq('id', user.id);
             return Response.json({ ok: true, orderId, reference, paymentStatus: payload.data.payment_status ?? 'PENDING' });
           }
 
@@ -80,8 +84,10 @@ export const Route = createFileRoute('/payment')({
             const paymentStatus = String(payload?.data?.payment_status ?? 'PENDING').toUpperCase();
             const transactionId = payload?.data?.transid ? String(payload.data.transid) : null;
             if (['SUCCESS', 'COMPLETED'].includes(paymentStatus)) {
-              await db.from('moxera_payments').update({ status: 'paid', transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
-              await db.from('moxera_users').update({ payment_status: 'paid', status: 'active', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
+              await db.from('moxera_payments').update({ status: 'paid', paid_at: new Date().toISOString(), transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
+              const paidPlan = ['activation','premium','vip'].includes(String(payment.plan)) ? String(payment.plan) : 'activation';
+              await db.from('moxera_users').update({ ...(paidPlan === 'activation' ? { payment_status: 'paid' } : { membership_level: paidPlan }), status: 'active', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', authData.user.id);
+              await db.from('moxera_notifications').insert({ user_id: authData.user.id, title: paidPlan === 'premium' ? 'Premium imewashwa' : paidPlan === 'vip' ? 'VIP imewashwa' : 'Account imewashwa', message: paidPlan === 'premium' ? 'Malipo yamekamilika. Account yako sasa ni Premium.' : paidPlan === 'vip' ? 'Malipo yamekamilika. Account yako sasa ni VIP.' : 'Malipo ya activation yamekamilika.' });
             } else if (['CANCELLED', 'USERCANCELLED', 'REJECTED'].includes(paymentStatus)) {
               await db.from('moxera_payments').update({ status: 'rejected', transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
               await db.from('moxera_users').update({ payment_status: 'rejected', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
@@ -122,18 +128,25 @@ function Payment() {
   const [paid, setPaid] = useState(false);
   const [failed, setFailed] = useState(false);
   const [phone, setPhone] = useState('');
+  const [plan, setPlan] = useState<'activation'|'premium'|'vip'>('activation');
+  const FEE = PLAN_FEES[plan];
 
   useEffect(() => {
     getCurrentMoxeraUser().then(async (u) => {
       if (!u) { nav({ to: '/register' }); return; }
       setPhone(u.phone);
-      if (u.paymentStatus === 'paid') {
+      const requestedPlan = new URLSearchParams(window.location.search).get('plan');
+      const currentPlan = requestedPlan === 'premium' || requestedPlan === 'vip' ? requestedPlan : 'activation';
+      setPlan(currentPlan);
+      if (currentPlan === 'activation' && u.paymentStatus === 'paid') {
         setPaid(true);
         if (u.status === 'active') nav({ to: '/dashboard' });
         return;
       }
+      if (currentPlan === 'premium' && u.membershipLevel === 'premium') { setPaid(true); nav({ to: '/dashboard' }); return; }
+      if (currentPlan === 'vip' && u.membershipLevel === 'vip') { setPaid(true); nav({ to: '/dashboard' }); return; }
       if (!supabase) return;
-      const { data } = await supabase.from('moxera_payments').select('external_order_id,status').eq('user_id', u.id).eq('status', 'pending').not('external_order_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const { data } = await supabase.from('moxera_payments').select('external_order_id,status').eq('user_id', u.id).eq('plan', currentPlan).eq('status', 'pending').not('external_order_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (data?.external_order_id) setOrderId(data.external_order_id);
     }).catch(() => undefined);
   }, [nav]);
@@ -165,7 +178,7 @@ function Payment() {
     try {
       const normalizedPhone = normalizeTanzaniaPhone(phone);
       setPhone(normalizedPhone);
-      const result = await paymentRequest({ action: 'create', phone: normalizedPhone });
+      const result = await paymentRequest({ action: 'create', phone: normalizedPhone, plan });
       setOrderId(result.orderId);
       setStatus(result.paymentStatus || 'PENDING');
       toast.success('Ombi la malipo limetumwa kwenye simu yako.');
@@ -176,8 +189,8 @@ function Payment() {
   return <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
     <div className="w-full max-w-md rounded-3xl bg-card p-6 text-center shadow-xl">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><CreditCard className="h-8 w-8 text-primary" /></div>
-      <h1 className="mt-4 text-2xl font-extrabold text-accent">Activate Account</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Lipa ada ya kuanzisha account yako.</p>
+      <h1 className="mt-4 text-2xl font-extrabold text-accent">{plan === 'premium' ? 'Upgrade Premium' : plan === 'vip' ? 'Upgrade VIP' : 'Activate Account'}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{plan === 'premium' ? 'Lipa ada ya Premium.' : plan === 'vip' ? 'Lipa ada ya VIP.' : 'Lipa ada ya kuanzisha account yako.'}</p>
       <div className="my-6 rounded-2xl bg-secondary p-5">
         <p className="text-xs text-muted-foreground">Activation Fee</p>
         <p className="mt-1 text-3xl font-extrabold">{FEE.toLocaleString()} TZS</p>

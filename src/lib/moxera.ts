@@ -316,6 +316,8 @@ export type MoxeraUser = {
   country: string;
   status?: "pending" | "active" | "banned" | "inactive";
   paymentStatus?: "unpaid" | "pending" | "paid" | "rejected";
+  membershipLevel?: "normal" | "premium" | "vip";
+  invitedCount?: number;
   balance?: number;
   registeredAt: string;
 };
