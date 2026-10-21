@@ -48,3 +48,17 @@ SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 
 ## Security note
 Usiweke secret payment key kwenye source code, `.env` inayowekwa GitHub, au variable yenye `VITE_`. Weka secret kwenye Vercel Environment Variables pekee.
+
+
+## SplashPay payment setup
+
+Configure these server-side variables in Vercel (Production/Preview as appropriate):
+- `SPLASHPAY_API_KEY` — SplashPay test or live public API key (`pk_test_...` or `pk_live_...`)
+- `SPLASHPAY_API_SECRET` — SplashPay test or live API secret (`sk_test_...` or `sk_live_...`)
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side Supabase service role key
+- `SUPABASE_URL` (or existing `VITE_SUPABASE_URL`) — Supabase project URL
+- `SUPABASE_ANON_KEY` (or existing `VITE_SUPABASE_ANON_KEY`) — Supabase anon key used to verify the signed-in user
+
+SplashPay calls are made only from the server. The client never receives the API secret. Activation fee is fixed at TZS 15,000. Payment references sent to SplashPay begin with `INV-`. The app polls `POST /payments/check-status` using the reference (no webhook is required); activation or membership changes happen only after SplashPay returns `data.status = success`.
+
+Remove the old `PAYMENT_API_SECRET` environment variable after verifying the SplashPay integration is working. Do not commit API credentials to source control.

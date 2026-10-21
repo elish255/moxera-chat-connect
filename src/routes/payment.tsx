@@ -8,7 +8,7 @@ import { normalizeTanzaniaPhone } from '@/lib/phone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const ACTIVATION_FEE = Number(import.meta.env.VITE_ACTIVATION_FEE || 16000);
+const ACTIVATION_FEE = 15000;
 const PLAN_FEES: Record<string, number> = { activation: ACTIVATION_FEE, premium: 32000, vip: 35500 };
 
 export const Route = createFileRoute('/payment')({
@@ -23,9 +23,10 @@ export const Route = createFileRoute('/payment')({
           const token = authHeader.replace(/^Bearer\s+/i, '').trim();
           const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
           const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-          const secretKey = process.env.PAYMENT_API_SECRET;
+          const splashPayApiKey = process.env.SPLASHPAY_API_KEY;
+          const splashPayApiSecret = process.env.SPLASHPAY_API_SECRET;
           const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          if (!supabaseUrl || !anonKey || !secretKey || !serviceKey) return Response.json({ error: 'Payment service is not configured.' }, { status: 500 });
+          if (!supabaseUrl || !anonKey || !splashPayApiKey || !splashPayApiSecret || !serviceKey) return Response.json({ error: 'Payment service is not configured. Set SPLASHPAY_API_KEY, SPLASHPAY_API_SECRET and Supabase server variables in Vercel.' }, { status: 500 });
           if (!token) return Response.json({ error: 'Unauthenticated.' }, { status: 401 });
 
           const { createClient } = await import('@supabase/supabase-js');
@@ -50,21 +51,42 @@ export const Route = createFileRoute('/payment')({
             } catch {
               return Response.json({ error: 'Weka namba sahihi ya Tanzania, kwa mfano 0787483953.' }, { status: 400 });
             }
-            const amount = plan === 'premium' ? 32000 : plan === 'vip' ? 35500 : Number(process.env.VITE_ACTIVATION_FEE ?? 16000);
-            const reference = `MX-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-            const upstream = await fetch('https://fimipay.com/api/v1/payment/create_order', {
+            const amount = plan === 'premium' ? 32000 : plan === 'vip' ? 35500 : 15000;
+            if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: 'Kiasi cha malipo hakijasanidiwa vizuri.' }, { status: 500 });
+            // SplashPay merchant references must begin with INV- and remain unique.
+            const reference = `INV-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+            const idempotencyKey = `moxera-${reference}`;
+            const upstream = await fetch('https://api.splashpay.co.tz/api/v1/payments/mobile-money', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Moxera-Payment/1.0', Authorization: `Bearer ${secretKey}` },
-              body: JSON.stringify({ buyer_email: user.email, buyer_name: user.full_name, buyer_phone: phone, amount, currency: 'TZS', payment_method: 'mobile' }),
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-API-KEY': splashPayApiKey,
+                'X-API-SECRET': splashPayApiSecret,
+                'Idempotency-Key': idempotencyKey,
+              },
+              body: JSON.stringify({
+                amount,
+                currency: 'TZS',
+                reference,
+                phone,
+                customer_name: user.full_name || user.email,
+                customer_email: user.email,
+                metadata: { user_id: user.id, plan, application: 'moxera' },
+              }),
             });
             const payload = await upstream.json().catch(() => ({}));
-            if (!upstream.ok || payload?.status !== 'success' || !payload?.data?.order_id) return Response.json({ error: payload?.message || 'Imeshindikana kuanzisha malipo.' }, { status: 502 });
+            if (!upstream.ok || payload?.status !== 'success' || !payload?.data?.reference) {
+              console.error('[SplashPay] payment initiation failed', { httpStatus: upstream.status, code: payload?.code, message: payload?.message });
+              return Response.json({ error: payload?.message || 'Imeshindikana kuanzisha malipo kupitia SplashPay.' }, { status: 502 });
+            }
 
-            const orderId = String(payload.data.order_id);
-            const { error: insertError } = await db.from('moxera_payments').insert({ user_id: user.id, amount, currency: 'TZS', provider: 'mobile', plan, reference, external_order_id: orderId, status: 'pending' });
+            // Use the merchant reference as the local order ID; SplashPay checks status by reference.
+            const orderId = String(payload.data.reference);
+            const { error: insertError } = await db.from('moxera_payments').insert({ user_id: user.id, amount, currency: 'TZS', provider: 'splashpay', plan, reference, external_order_id: orderId, status: 'pending', transaction_id: payload?.data?.provider_reference ? String(payload.data.provider_reference) : null });
             if (insertError) return Response.json({ error: 'Malipo yameanzishwa lakini kumbukumbu haikuhifadhiwa.' }, { status: 500 });
             if (plan === 'activation') await db.from('moxera_users').update({ payment_status: 'pending', phone, updated_at: new Date().toISOString() }).eq('id', user.id);
-            return Response.json({ ok: true, orderId, reference, paymentStatus: payload.data.payment_status ?? 'PENDING' });
+            return Response.json({ ok: true, orderId, reference, paymentStatus: String(payload?.data?.status ?? 'pending').toUpperCase() });
           }
 
           if (action === 'status') {
@@ -73,26 +95,49 @@ export const Route = createFileRoute('/payment')({
             const { data: payment } = await db.from('moxera_payments').select('*').eq('external_order_id', orderId).eq('user_id', authData.user.id).maybeSingle();
             if (!payment) return Response.json({ error: 'Payment not found.' }, { status: 404 });
 
-            const upstream = await fetch('https://fimipay.com/api/v1/payment/order_status', {
+            const upstream = await fetch('https://api.splashpay.co.tz/api/v1/payments/check-status', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Moxera-Payment/1.0', Authorization: `Bearer ${secretKey}` },
-              body: JSON.stringify({ order_id: orderId }),
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-API-KEY': splashPayApiKey,
+                'X-API-SECRET': splashPayApiSecret,
+              },
+              body: JSON.stringify({ reference: orderId }),
             });
             const payload = await upstream.json().catch(() => ({}));
-            if (!upstream.ok || payload?.status !== 'success') return Response.json({ error: payload?.message || 'Status haikupatikana.' }, { status: 502 });
-
-            const paymentStatus = String(payload?.data?.payment_status ?? 'PENDING').toUpperCase();
-            const transactionId = payload?.data?.transid ? String(payload.data.transid) : null;
-            if (['SUCCESS', 'COMPLETED'].includes(paymentStatus)) {
-              await db.from('moxera_payments').update({ status: 'paid', paid_at: new Date().toISOString(), transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
-              const paidPlan = ['activation','premium','vip'].includes(String(payment.plan)) ? String(payment.plan) : 'activation';
-              await db.from('moxera_users').update({ ...(paidPlan === 'activation' ? { payment_status: 'paid' } : { membership_level: paidPlan }), status: 'active', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', authData.user.id);
-              await db.from('moxera_notifications').insert({ user_id: authData.user.id, title: paidPlan === 'premium' ? 'Premium imewashwa' : paidPlan === 'vip' ? 'VIP imewashwa' : 'Account imewashwa', message: paidPlan === 'premium' ? 'Malipo yamekamilika. Account yako sasa ni Premium.' : paidPlan === 'vip' ? 'Malipo yamekamilika. Account yako sasa ni VIP.' : 'Malipo ya activation yamekamilika.' });
-            } else if (['CANCELLED', 'USERCANCELLED', 'REJECTED'].includes(paymentStatus)) {
-              await db.from('moxera_payments').update({ status: 'rejected', transaction_id: transactionId, updated_at: new Date().toISOString() }).eq('id', payment.id);
-              await db.from('moxera_users').update({ payment_status: 'rejected', updated_at: new Date().toISOString() }).eq('id', authData.user.id);
+            if (!upstream.ok || payload?.status !== 'success' || !payload?.data) {
+              console.error('[SplashPay] status check failed', { httpStatus: upstream.status, code: payload?.code, message: payload?.message });
+              return Response.json({ error: payload?.message || 'Status ya malipo haikupatikana.' }, { status: 502 });
             }
-            return Response.json({ ok: true, paymentStatus, transactionId });
+
+            const paymentStatus = String(payload?.data?.status ?? 'pending').toUpperCase();
+            const transactionId = payload?.data?.provider_reference ? String(payload.data.provider_reference) : null;
+            const now = new Date().toISOString();
+            if (paymentStatus === 'SUCCESS') {
+              // Idempotent activation: only run account changes once per payment.
+              if (payment.status !== 'paid') {
+                const { error: paymentUpdateError } = await db.from('moxera_payments').update({ status: 'paid', paid_at: now, transaction_id: transactionId, updated_at: now }).eq('id', payment.id).neq('status', 'paid');
+                if (paymentUpdateError) return Response.json({ error: 'Malipo yamethibitishwa lakini kumbukumbu haikuweza kusasishwa.' }, { status: 500 });
+                const paidPlan = ['activation','premium','vip'].includes(String(payment.plan)) ? String(payment.plan) : 'activation';
+                const userUpdate = paidPlan === 'activation'
+                  ? { payment_status: 'paid', status: 'active', paid_at: now, updated_at: now }
+                  : { membership_level: paidPlan, status: 'active', paid_at: now, updated_at: now };
+                const { error: userUpdateError } = await db.from('moxera_users').update(userUpdate).eq('id', authData.user.id);
+                if (userUpdateError) return Response.json({ error: 'Malipo yamethibitishwa lakini akaunti haikuweza kusasishwa. Wasiliana na support.' }, { status: 500 });
+                await db.from('moxera_notifications').insert({
+                  user_id: authData.user.id,
+                  title: paidPlan === 'premium' ? 'Premium imewashwa' : paidPlan === 'vip' ? 'VIP imewashwa' : 'Account imewashwa',
+                  message: paidPlan === 'premium' ? 'Malipo yamekamilika. Account yako sasa ni Premium.' : paidPlan === 'vip' ? 'Malipo yamekamilika. Account yako sasa ni VIP.' : 'Malipo ya activation yamekamilika.',
+                });
+              }
+            } else if (['FAILED', 'CANCELLED', 'EXPIRED'].includes(paymentStatus)) {
+              if (payment.status !== 'paid') {
+                await db.from('moxera_payments').update({ status: 'rejected', transaction_id: transactionId, updated_at: now }).eq('id', payment.id);
+                if (payment.plan === 'activation') await db.from('moxera_users').update({ payment_status: 'rejected', updated_at: now }).eq('id', authData.user.id);
+              }
+            }
+            return Response.json({ ok: true, paymentStatus, transactionId, reference: orderId });
           }
           return Response.json({ error: 'Unknown action.' }, { status: 400 });
         } catch (error) {
@@ -162,8 +207,8 @@ function Payment() {
         const result = await paymentRequest({ action: 'status', orderId });
         if (cancelled) return;
         setStatus(result.paymentStatus);
-        if (['SUCCESS', 'COMPLETED'].includes(String(result.paymentStatus).toUpperCase())) { setPaid(true); toast.success('Malipo yamefanikiwa! Akaunti yako imewezeshwa.'); nav({ to: '/dashboard' }); return; }
-        if (['CANCELLED', 'USERCANCELLED', 'REJECTED'].includes(result.paymentStatus)) { setFailed(true); return; }
+        if (String(result.paymentStatus).toUpperCase() === 'SUCCESS') { setPaid(true); toast.success('Malipo yamefanikiwa! Akaunti yako imewezeshwa.'); nav({ to: '/dashboard' }); return; }
+        if (['FAILED', 'CANCELLED', 'EXPIRED', 'USERCANCELLED', 'REJECTED'].includes(String(result.paymentStatus).toUpperCase())) { setFailed(true); return; }
       } catch (error) {
         if (attempts >= 40) { toast.error(error instanceof Error ? error.message : 'Imeshindikana kuangalia malipo.'); }
       }
