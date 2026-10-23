@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import { registerMoxeraUser } from "@/lib/auth";
+import { sendMoxeraRegistrationSms } from "@/lib/darsms";
 import { COUNTRIES } from "@/lib/moxera";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,18 @@ function Register() {
     if(form.password.length<6) return toast.error("Password iwe na angalau herufi 6.");
     if(form.password!==form.confirm) return toast.error("Password hazifanani.");
     setBusy(true);
-    try { await registerMoxeraUser({...form, country:form.country}); toast.success("Usajili umefanikiwa."); navigate({to:"/payment"}); }
+    try {
+      await registerMoxeraUser({...form, country:form.country});
+      try {
+        await sendMoxeraRegistrationSms({ data: { phone: form.phone, username: form.username } });
+        toast.success("Usajili umefanikiwa. SMS imetumwa.");
+      } catch (smsError) {
+        // SMS delivery trouble must not undo a successful account registration.
+        console.error("Registration succeeded but SMS could not be queued", smsError);
+        toast.success("Usajili umefanikiwa. SMS haikuweza kutumwa kwa sasa.");
+      }
+      navigate({to:"/payment"});
+    }
     catch(err:any){ toast.error(err?.message || "Usajili umeshindikana."); }
     finally{setBusy(false);}
   }
