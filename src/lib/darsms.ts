@@ -22,7 +22,7 @@ export const sendMoxeraRegistrationSms = createServerFn({ method: "POST" })
     const senderId = process.env.DARSMS_SENDER_ID || "AJIRA PLUS";
     if (!apiKey) throw new Error("DARSMS_API_KEY haijawekwa kwenye Vercel.");
 
-    const message = `Hongera! ${data.username}, usajili wako wa MOXERA AGENCIES umekamilika. Wezesha/Lipia akaunti kwa Tsh 15000 uanze kulipwa hadi 100,000 Tzs kwa siku kwa kuwafundisha wazungu Kiswahili. Gusa link https://www.moxeras.site/login Jaza Username na Password.`;
+    const message = `Hongera! ${data.username}, usajili wako wa MOXERA AGENCIES umekamilika. Wezesha/Lipia akaunti kwa Tsh 15000 uanze kulipwa hadi 100,000 Tzs kwa siku kwa kuwafundisha wazungu Kiswahili. Gusa link https://www.moxeras.site/login kwa msaada zaidi tuma neno "Msaada Moxera" 0743871339.`;
     const response = await fetch("https://dev.darsms.co.tz/api/v1/integrations/sms/send", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": apiKey },

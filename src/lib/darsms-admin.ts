@@ -31,12 +31,21 @@ export const sendMoxeraAdminSms = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("DARSMS_API_KEY haijawekwa kwenye Vercel.");
 
     // Verify the caller's Supabase session and admin membership on the server.
-    const supabase = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const supabase = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      // Forward the verified admin session to PostgREST so RLS policies see
+      // the same authenticated user as the Admin Panel browser session.
+      global: { headers: { Authorization: `Bearer ${data.accessToken}` } },
+    });
     const { data: authData, error: authError } = await supabase.auth.getUser(data.accessToken);
     if (authError || !authData.user) throw new Error("Session imeisha. Ingia tena kama admin.");
     const { data: admin, error: adminError } = await supabase
       .from("moxera_admins").select("user_id").eq("user_id", authData.user.id).maybeSingle();
-    if (adminError || !admin) throw new Error("Huruhusiwi kutuma SMS kupitia admin panel.");
+    if (adminError) {
+      console.error("DARSMS admin authorization lookup failed", { code: adminError.code, message: adminError.message });
+      throw new Error("Imeshindikana kuthibitisha ruhusa za admin kwenye database. Hakikisha table moxera_admins na ruhusa zake za SELECT zipo.");
+    }
+    if (!admin) throw new Error("Huruhusiwi kutuma SMS kupitia admin panel. Akaunti yako haipo kwenye moxera_admins.");
 
     let sent = 0;
     const failed: { username: string; reason: string }[] = [];
