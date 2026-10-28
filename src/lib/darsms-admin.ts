@@ -70,3 +70,47 @@ export const sendMoxeraAdminSms = createServerFn({ method: "POST" })
     console.info("DARSMS admin bulk send result", { adminId: authData.user.id, attempted: data.recipients.length, sent, failed: failed.length });
     return { attempted: data.recipients.length, sent, failed };
   });
+
+
+/** Sends the withdrawal-paid confirmation only after an authorized admin marks it paid. */
+export const sendMoxeraWithdrawalPaidSms = createServerFn({ method: "POST" })
+  .inputValidator((input: { accessToken: string; phone: string; username: string; amount: number }) => {
+    if (!input || typeof input.accessToken !== "string" || input.accessToken.length < 20) throw new Error("Admin session haijathibitishwa.");
+    if (typeof input.phone !== "string" || typeof input.username !== "string" || !Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Taarifa za withdrawal SMS si sahihi.");
+    let phone = input.phone.trim().replace(/[\s().-]/g, "");
+    if (phone.startsWith("+")) phone = phone.slice(1);
+    if (phone.startsWith("00")) phone = phone.slice(2);
+    if (phone.startsWith("0")) phone = `255${phone.slice(1)}`;
+    if (/^[67]\d{8}$/.test(phone)) phone = `255${phone}`;
+    if (!/^255[67]\d{8}$/.test(phone)) throw new Error("Namba ya simu ya user si sahihi.");
+    return { accessToken: input.accessToken, phone, username: input.username.trim().slice(0, 80), amount: input.amount };
+  })
+  .handler(async ({ data }) => {
+    const url = process.env.VITE_SUPABASE_URL;
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    const apiKey = process.env.DARSMS_API_KEY;
+    const senderId = process.env.DARSMS_SENDER_ID || "AJIRA PLUS";
+    if (!url || !anonKey) throw new Error("Supabase server configuration haipo.");
+    if (!apiKey) throw new Error("DARSMS_API_KEY haijawekwa kwenye Vercel.");
+    const supabase = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${data.accessToken}` } },
+    });
+    const { data: authData, error: authError } = await supabase.auth.getUser(data.accessToken);
+    if (authError || !authData.user) throw new Error("Session imeisha. Ingia tena kama admin.");
+    const { data: admin, error: adminError } = await supabase.from("moxera_admins").select("user_id").eq("user_id", authData.user.id).maybeSingle();
+    if (adminError || !admin) throw new Error("Huruhusiwi kutuma SMS hii. Hakikisha akaunti yako ipo kwenye moxera_admins.");
+    const message = `HONGERA ${data.username} withdrawal Yako ya TZS ${data.amount.toLocaleString("en-US")} imetumwa Kikamilifu. Asante kwa kuchagua Moxera Agencies`;
+    const response = await fetch("https://dev.darsms.co.tz/api/v1/integrations/sms/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ senderId, to: [data.phone], message }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const result = await response.json().catch(() => null) as { success?: boolean; message?: string } | null;
+    if (!response.ok || result?.success !== true) {
+      console.error("DARSMS withdrawal paid SMS failed", { status: response.status, message: result?.message });
+      throw new Error(result?.message || `DARSMS HTTP ${response.status}`);
+    }
+    return { queued: true };
+  });
