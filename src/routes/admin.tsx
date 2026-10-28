@@ -5,7 +5,7 @@ import { requireSupabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { sendMoxeraAdminSms } from "@/lib/darsms-admin";
+import { sendMoxeraAdminSms, sendMoxeraWithdrawalPaidSms } from "@/lib/darsms-admin";
 
 export const Route = createFileRoute("/admin")({ component: Admin });
 type User = { id:string; full_name:string; username:string; email:string; phone:string; country:string; status:string; payment_status:string; balance:number; created_at:string; paid_at?:string|null; membership_level?:string; invited_count?:number };
@@ -21,7 +21,26 @@ function Admin(){
  async function updateUser(id:string,patch:Record<string,any>,success:string){if(!db)return;const {error}=await db.from("moxera_users").update(patch).eq("id",id);if(error)toast.error(error.message);else{const {data:u}=await db.from("moxera_users").select("membership_level,status").eq("id",id).maybeSingle();await db.from("moxera_notifications").insert({user_id:id,title:"Account update",message:`${success} Membership: ${(u as any)?.membership_level||"normal"}; status: ${(u as any)?.status||"unknown"}.`});toast.success(success);await load()}}
  async function changeLevel(u:User,level:"normal"|"premium"|"vip"){await updateUser(u.id,{membership_level:level},`Account imewekwa ${level.toUpperCase()}.`)}
  async function adjustBalance(u:User){const raw=window.prompt(`Ingiza kiasi cha kuongeza (+) au kupunguza (-) balance ya ${u.username}:`);if(raw===null)return;const amount=Number(raw);if(!Number.isFinite(amount)||amount===0){toast.error("Weka kiasi sahihi.");return}const remark=window.prompt("Sababu ya mabadiliko ya balance:");if(!remark?.trim())return;const {error}=await db!.rpc("moxera_admin_adjust_balance",{p_user_id:u.id,p_amount:amount,p_remark:remark.trim()});if(error)toast.error(error.message);else{toast.success("Balance imebadilishwa na kumbukumbu imehifadhiwa.");await load()}}
- async function updateWithdrawal(w:Withdrawal,status:"approved"|"rejected"|"paid"){if(!db)return;const remark=window.prompt(status==="approved"?"Remark ya approval:":status==="rejected"?"Sababu ya kukataa withdrawal:":"Remark ya malipo:",w.admin_remark||"");if(remark===null)return;const now=new Date().toISOString();const {error}=await db.from("moxera_withdrawals").update({status,admin_remark:remark,admin_note:remark,reviewed_at:now,reviewed_by:session?.user?.id,...(status==="paid"?{paid_at:now}:{})}).eq("id",w.id);if(error){toast.error(error.message);return}if(status==="rejected"){const {data:u}=await db.from("moxera_users").select("balance").eq("id",w.user_id).maybeSingle();if(u){const {error:refundError}=await db.from("moxera_users").update({balance:Number((u as any).balance||0)+Number(w.amount)}).eq("id",w.user_id);if(refundError){toast.error("Withdrawal imekataliwa lakini kurejesha balance kumeshindikana: "+refundError.message);return}}}await db.from("moxera_notifications").insert({user_id:w.user_id,title:status==="approved"?"Withdrawal imeidhinishwa":status==="rejected"?"Withdrawal imekataliwa":"Withdrawal imelipwa",message:`Ombi lako la TZS ${Number(w.amount).toLocaleString()} limebadilishwa kuwa ${status.toUpperCase()}.${remark?` Remark: ${remark}`:""}`});toast.success("Withdrawal imeboreshwa na user ametumiwa notification.");await load()}
+ async function updateWithdrawal(w:Withdrawal,status:"approved"|"rejected"|"paid"){if(!db)return;const remark=window.prompt(status==="approved"?"Remark ya approval:":status==="rejected"?"Sababu ya kukataa withdrawal:":"Remark ya malipo:",w.admin_remark||"");if(remark===null)return;const now=new Date().toISOString();const {error}=await db.from("moxera_withdrawals").update({status,admin_remark:remark,admin_note:remark,reviewed_at:now,reviewed_by:session?.user?.id,...(status==="paid"?{paid_at:now}:{})}).eq("id",w.id);if(error){toast.error(error.message);return}if(status==="rejected"){const {data:u}=await db.from("moxera_users").select("balance").eq("id",w.user_id).maybeSingle();if(u){const {error:refundError}=await db.from("moxera_users").update({balance:Number((u as any).balance||0)+Number(w.amount)}).eq("id",w.user_id);if(refundError){toast.error("Withdrawal imekataliwa lakini kurejesha balance kumeshindikana: "+refundError.message);return}}}
+ await db.from("moxera_notifications").insert({user_id:w.user_id,title:status==="approved"?"Withdrawal imeidhinishwa":status==="rejected"?"Withdrawal imekataliwa":"Withdrawal imelipwa",message:`Ombi lako la TZS ${Number(w.amount).toLocaleString()} limebadilishwa kuwa ${status.toUpperCase()}.${remark?` Remark: ${remark}`:""}`});
+ if(status==="paid"){
+   const recipient=w.moxera_users;
+   if(recipient?.phone&&recipient?.username&&session?.access_token){
+    try{await sendMoxeraWithdrawalPaidSms({data:{accessToken:session.access_token,phone:recipient.phone,username:recipient.username,amount:Number(w.amount)}});toast.success("Withdrawal imelipwa na SMS ya uthibitisho imetumwa.");}
+    catch(e:any){toast.warning("Withdrawal imewekwa Paid, lakini SMS haikutumwa: "+(e?.message||"Kosa la DARSMS."));}
+   }else toast.warning("Withdrawal imewekwa Paid, lakini username/namba ya user haijapatikana kwa SMS.");
+   const {count,error:countError}=await db.from("moxera_withdrawals").select("id",{count:"exact",head:true}).eq("user_id",w.user_id).eq("status","paid");
+   if(countError)toast.warning("Imeshindikana kuhesabu withdrawals zilizolipwa: "+countError.message);
+   else if((count||0)>=2){
+    const {data:userLevel}=await db.from("moxera_users").select("membership_level").eq("id",w.user_id).maybeSingle();
+    if(userLevel?.membership_level==="vip"){
+     const {error:downgradeError}=await db.from("moxera_users").update({membership_level:"premium"}).eq("id",w.user_id);
+     if(downgradeError)toast.warning("VIP downgrade kwenda Premium imeshindikana: "+downgradeError.message);
+     else {await db.from("moxera_notifications").insert({user_id:w.user_id,title:"Membership imebadilika",message:"Umefanya withdrawal mbili zilizolipwa. Akaunti yako ya VIP imeshushwa kuwa Premium."});toast.info("VIP imebadilishwa kuwa Premium baada ya withdrawals mbili zilizolipwa.");}
+    }
+   }
+ }
+ toast.success("Withdrawal imeboreshwa.");await load()}
  const smsRecipients=useMemo(()=>users.filter(u=>{ if(!u.phone?.trim()) return false; if(smsGroup==="Not Active") return u.status!=="active" && u.status!=="banned"; if(smsGroup==="Premium") return u.membership_level==="premium"; if(smsGroup==="VIP") return u.membership_level==="vip"; if(smsGroup==="Active") return u.status==="active"; return false; }),[users,smsGroup]);
  const smsNumbers=useMemo(()=>smsRecipients.map(u=>u.phone.trim()).join(", "),[smsRecipients]);
  async function sendBulkSms(){

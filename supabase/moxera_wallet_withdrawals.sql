@@ -24,12 +24,14 @@ drop policy if exists "moxera withdrawals admin update" on public.moxera_withdra
 create policy "moxera withdrawals admin update" on public.moxera_withdrawals for update to authenticated using(public.moxera_is_admin()) with check(public.moxera_is_admin());
 create or replace function public.moxera_request_withdrawal(p_amount numeric,p_method text,p_account text)
 returns uuid language plpgsql security definer set search_path=public as $$
-declare v_user uuid := auth.uid(); v_balance numeric; v_id uuid; v_fee numeric;
+declare v_user uuid := auth.uid(); v_balance numeric; v_id uuid; v_fee numeric; v_level text;
 begin
  if v_user is null then raise exception 'Tafadhali ingia tena.'; end if;
- if p_amount < 50000 then raise exception 'Insufficient Balance: kiwango cha chini ni TZS 50,000.'; end if;
+ 
  if coalesce(trim(p_method),'')='' or coalesce(trim(p_account),'')='' then raise exception 'Weka njia na namba ya kupokea pesa.'; end if;
- select balance into v_balance from public.moxera_users where id=v_user for update;
+ select balance, lower(coalesce(membership_level,'normal')) into v_balance, v_level from public.moxera_users where id=v_user for update;
+ if v_level = 'vip' and p_amount < 500000 then raise exception 'Kiwango cha chini cha withdrawal kwa VIP ni TZS 500,000.'; end if;
+ if v_level <> 'vip' and p_amount < 50000 then raise exception 'Kiwango cha chini cha withdrawal ni TZS 50,000.'; end if;
  if v_balance is null or v_balance < p_amount then raise exception 'Insufficient Balance.'; end if;
  v_fee := round(p_amount*0.05,2);
  update public.moxera_users set balance=balance-p_amount,updated_at=now() where id=v_user;
