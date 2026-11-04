@@ -173,7 +173,7 @@ function Payment() {
   const [paid, setPaid] = useState(false);
   const [failed, setFailed] = useState(false);
   const [phone, setPhone] = useState('');
-  const [plan, setPlan] = useState<'activation'|'premium'|'vip'>('activation');
+  const [plan, setPlan] = useState<'premium'|'vip'>('premium');
   const FEE = PLAN_FEES[plan];
 
   useEffect(() => {
@@ -181,7 +181,8 @@ function Payment() {
       if (!u) { nav({ to: '/register' }); return; }
       setPhone(u.phone);
       const requestedPlan = new URLSearchParams(window.location.search).get('plan');
-      const currentPlan = requestedPlan === 'premium' || requestedPlan === 'vip' ? requestedPlan : 'activation';
+      if (requestedPlan !== 'premium' && requestedPlan !== 'vip') { nav({ to: '/dashboard' }); return; }
+      const currentPlan = requestedPlan;
       setPlan(currentPlan);
       if (currentPlan === 'activation' && u.paymentStatus === 'paid') {
         setPaid(true);
@@ -234,10 +235,10 @@ function Payment() {
   return <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
     <div className="w-full max-w-md rounded-3xl bg-card p-6 text-center shadow-xl">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><CreditCard className="h-8 w-8 text-primary" /></div>
-      <h1 className="mt-4 text-2xl font-extrabold text-accent">{plan === 'premium' ? 'Upgrade Premium' : plan === 'vip' ? 'Upgrade VIP' : 'Activate Account'}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{plan === 'premium' ? 'Lipa ada ya Premium.' : plan === 'vip' ? 'Lipa ada ya VIP.' : 'Lipa ada ya kuanzisha account yako.'}</p>
+      <h1 className="mt-4 text-2xl font-extrabold text-accent">{plan === 'premium' ? 'Upgrade Premium' : 'Upgrade VIP'}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{plan === 'premium' ? 'Lipa ada ya Premium.' : 'Lipa ada ya VIP.'}</p>
       <div className="my-6 rounded-2xl bg-secondary p-5">
-        <p className="text-xs text-muted-foreground">Activation Fee</p>
+        <p className="text-xs text-muted-foreground">Ada ya membership</p>
         <p className="mt-1 text-3xl font-extrabold">{FEE.toLocaleString()} TZS</p>
       </div>
       {!orderId && !paid && !failed && <>

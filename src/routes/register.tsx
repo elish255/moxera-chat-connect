@@ -31,7 +31,7 @@ function Register() {
         console.error("Registration succeeded but SMS could not be queued", smsError);
         toast.success("Usajili umefanikiwa. SMS haikuweza kutumwa kwa sasa.");
       }
-      navigate({to:"/payment"});
+      navigate({to:"/dashboard"});
     }
     catch(err:any){ toast.error(err?.message || "Usajili umeshindikana."); }
     finally{setBusy(false);}
