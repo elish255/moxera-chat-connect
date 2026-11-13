@@ -39,16 +39,117 @@ type Msg = { from: "them" | "me"; text: string; time: string };
 const now = () =>
   new Date().toLocaleTimeString("sw-TZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 
-function makeRealisticReply(input: string, fallback: string) {
-  const text = input.toLowerCase();
-  if (text.includes("habari") || text.includes("hujambo") || text.includes("mambo")) return "Nzuri sana, asante! Na wewe hali yako ikoje? Bado najifunza salamu za Kiswahili 😊";
-  if (text.includes("asante")) return "Karibu sana! Nimejifunza kuwa ‘asante’ ni neno muhimu. Naweza kujibu ‘karibu’, sivyo?";
-  if (text.includes("karibu")) return "Sasa nimeelewa tofauti yake kidogo. ‘Karibu’ kwa mtu mmoja, na ‘karibuni’ kwa watu wengi, nimekosea?";
-  if (text.includes("shikamoo")) return "Nimewahi kusikia ‘shikamoo’! Ni salamu ya heshima kwa mtu mkubwa, halafu anajibu ‘marahaba’, sivyo?";
-  if (text.includes("bei") || text.includes("pesa") || text.includes("gharama")) return "Neno la bei ninalijua! Nikifika sokoni naweza kusema ‘bei gani?’ Je, hilo ni sahihi?";
-  if (text.includes("tanzania") || text.includes("dar es salaam") || text.includes("zanzibar")) return "Ningependa sana kutembelea Tanzania. Ni chakula gani cha kienyeji unanishauri nijaribu kwanza?";
-  if (text.includes("ndiyo") || text.includes("ndio")) return "Aah, sawa nimekuelewa. Naweza kujaribu kutumia neno hilo kwenye sentensi nyingine?";
-  return fallback;
+const REPLY_GROUPS: Array<{ words: string[]; replies: string[] }> = [
+  {
+    words: ["habari", "hujambo", "mambo", "salama", "shikamoo", "marahaba"],
+    replies: [
+      "Niko vizuri, asante! Wewe je? Nimeanza kuelewa salamu tofauti za Kiswahili.",
+      "Nzuri kabisa! Leo nimejifunza salamu mpya. Kwa kawaida unatumia ipi zaidi?",
+      "Asante kwa kuniuliza, siku yangu inaenda vizuri. Na yako ikoje?",
+    ],
+  },
+  {
+    words: ["asante", "shukrani", "thanks", "thank you"],
+    replies: [
+      "Karibu sana! Nimefurahi maelezo yamekusaidia. Unaweza kunipa mfano mmoja zaidi?",
+      "Asante na wewe kwa kunifundisha. Nitajitahidi kulitumia hilo neno kwenye mazungumzo.",
+      "Nimekuelewa, asante kwa kunirekebisha. Je, kuna namna nyingine ya kusema hivyo?",
+    ],
+  },
+  {
+    words: ["karibu", "karibuni", "welcome"],
+    replies: [
+      "Nimeanza kuelewa matumizi ya ‘karibu’. Unaweza kunipa mfano wa sentensi nyingine?",
+      "Aah, sasa tofauti imekaa vizuri akilini. Nilitumia neno hilo kwa usahihi?",
+      "Asante kwa kunieleza. Kiswahili kina maneno yanayobadilika kulingana na mazingira.",
+    ],
+  },
+  {
+    words: ["bei", "pesa", "gharama", "nunua", "soko", "sell", "price", "money"],
+    replies: [
+      "Nimeelewa, mada ni kuhusu biashara. Sokoni nikitaka kuuliza bei kwa heshima nisemeje?",
+      "Hilo ni neno muhimu nikitembelea soko. Unaweza kunifundisha sentensi ya kujadiliana bei?",
+      "Asante, sasa naunganisha maneno hayo na mazingira ya kununua vitu. Wewe hupenda kununua nini sokoni?",
+    ],
+  },
+  {
+    words: ["chakula", "pika", "mapishi", "wali", "nyama", "samaki", "food", "cook"],
+    replies: [
+      "Hilo limenifanya nitamani kujaribu chakula cha Tanzania! Ni chakula gani unachokipenda zaidi?",
+      "Nimeelewa. Napenda kujifunza majina ya vyakula na namna ya kuvielezea kwa Kiswahili.",
+      "Asante kwa kushiriki hilo. Unaweza kunieleza chakula hicho kinapikwaje?",
+    ],
+  },
+  {
+    words: ["tanzania", "dar es salaam", "zanzibar", "arusha", "dodoma", "mwanza", "safari", "travel"],
+    replies: [
+      "Ningependa kutembelea huko siku moja. Ni sehemu gani ungependekeza nianzie?",
+      "Hiyo inaonekana sehemu ya kuvutia! Ni jambo gani moja nisikose nikifika huko?",
+      "Nimefurahi kujifunza kuhusu eneo hilo. Watu wa huko hupenda kufanya nini wakati wa mapumziko?",
+    ],
+  },
+  {
+    words: ["kazi", "biashara", "ofisi", "mkataba", "faida", "work", "business"],
+    replies: [
+      "Nimekuelewa. Ningependa kujua maneno ya Kiswahili yanayotumika kazini kila siku.",
+      "Hilo ni muhimu kwa mazungumzo ya kikazi. Unaweza kunipa mfano wa sentensi fupi?",
+      "Asante kwa kunieleza. Je, neno hilo lina maana ileile kwenye mazungumzo ya kawaida?",
+    ],
+  },
+  {
+    words: ["muziki", "wimbo", "nyimbo", "bongo flava", "music", "song"],
+    replies: [
+      "Napenda muziki wa Kiswahili! Ni msanii gani unanishauri nimsikilize kwanza?",
+      "Nimewahi kusikia muziki huo na nataka kuelewa maneno yake vizuri zaidi.",
+      "Asante kwa pendekezo! Kuna wimbo mmoja unaotumia Kiswahili rahisi kwa mwanafunzi?",
+    ],
+  },
+  {
+    words: ["ndiyo", "ndio", "sawa", "yes", "okay", "ok"],
+    replies: [
+      "Sawa, nimekuelewa. Nitajitahidi kukumbuka hilo tunapoendelea kuzungumza.",
+      "Vizuri! Naweza kujaribu kutumia nilichojifunza kwenye sentensi mpya.",
+      "Aah, nimekupata. Kuna jambo lingine ungependa tuzungumzie?",
+    ],
+  },
+];
+
+function makeRealisticReply(input: string, fallbacks: string[], recentReplies: string[]) {
+  const text = input
+    .toLocaleLowerCase("sw-TZ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const words = text.match(/[\p{L}]+/gu) ?? [];
+  const matchingGroup = REPLY_GROUPS.find(({ words: keywords }) =>
+    keywords.some((keyword) => {
+      const normalizedKeyword = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return normalizedKeyword.includes(" ")
+        ? text.includes(normalizedKeyword)
+        : words.includes(normalizedKeyword);
+    }),
+  );
+  const questionReply = /\?|\b(je|nini|nani|wapi|lini|vipi|kwa nini|how|what|where|when|why)\b/.test(text)
+    ? [
+        "Nimeelewa swali lako. Bado ninajifunza, lakini nitajaribu kujibu vizuri—unaweza kunipa mfano zaidi?",
+        "Swali zuri! Kwa ninavyoelewa, unataka kujua zaidi kuhusu hilo. Unaweza kunieleza muktadha kidogo?",
+        "Nimekupata. Sina uhakika kama nimeelewa kila kitu, unaweza kuniuliza kwa maneno mengine?",
+      ]
+    : [];
+  const generalReplies = [
+    "Nimekuelewa. Unaweza kunieleza jambo hilo kwa mfano mwingine?",
+    "Asante kwa ujumbe wako. Ningependa kujifunza zaidi kuhusu unachomaanisha.",
+    "Hilo linavutia. Wewe ulianza kulipenda au kulijua lini?",
+    "Ninaelewa sehemu ya ujumbe wako. Unaweza kunifafanulia kidogo?",
+    "Sijawahi kulifikiria hivyo. Ni jambo gani muhimu zaidi kuhusu hilo?",
+    "Nimefurahi kuzungumza nawe. Tuendelee—unapenda kufanya nini wakati wa mapumziko?",
+  ];
+  const choices = matchingGroup
+    ? [...matchingGroup.replies, ...questionReply, ...generalReplies, ...fallbacks]
+    : questionReply.length
+      ? [...questionReply, ...generalReplies, ...fallbacks]
+      : [...generalReplies, ...fallbacks];
+  const available = choices.filter((reply) => !recentReplies.includes(reply));
+  return available[Math.floor(Math.random() * available.length)] ?? generalReplies[0]!;
 }
 
 function ChatPage() {
@@ -64,6 +165,7 @@ function ChatPage() {
   const endRef = useRef<HTMLDivElement>(null);
   const chatKey = useRef(`${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const paidRef = useRef(false);
+  const recentRepliesRef = useRef<string[]>([]);
 
   useEffect(() => {
     getCurrentMoxeraUser().then(setUser).catch(() => setUser(null));
@@ -72,6 +174,7 @@ function ChatPage() {
   useEffect(() => {
     if (!foreigner) return;
     setMessages([]);
+    recentRepliesRef.current = [];
     setTyping(true);
     const timers = foreigner.opener.map((text, i) =>
       setTimeout(
@@ -112,7 +215,12 @@ function ChatPage() {
     }
 
     const nextCount = sentCount + 1;
-    const reply = makeRealisticReply(text, foreigner.replies[sentCount % foreigner.replies.length] ?? "Asante sana rafiki!");
+    const reply = makeRealisticReply(
+      text,
+      foreigner.replies,
+      recentRepliesRef.current,
+    );
+    recentRepliesRef.current = [...recentRepliesRef.current, reply].slice(-8);
     setSentCount(nextCount);
     if (nextCount >= 10 && !paidRef.current && user.id && supabase) {
       paidRef.current = true;
@@ -191,7 +299,12 @@ function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing &&
+              e.keyCode !== 229
+            ) {
               e.preventDefault();
               handleSend();
             }
