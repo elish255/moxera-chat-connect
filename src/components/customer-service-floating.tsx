@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, X } from "lucide-react";
 import { CustomerSupportChat } from "@/components/customer-support-chat";
-import { getCurrentMoxeraUser } from "@/lib/auth";
+import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
 
 export function CustomerServiceFloating() {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { data: user } = useQuery({
     queryKey: ["moxera-current-user"],
@@ -12,8 +13,18 @@ export function CustomerServiceFloating() {
     staleTime: 30_000,
   });
 
-  if (user?.status === "active")
-    return <CustomerSupportChat user={user} floating />;
+  useEffect(() => {
+    const unsubscribe = subscribeAuth(() => {
+      window.setTimeout(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["moxera-current-user"],
+        });
+      }, 0);
+    });
+    return unsubscribe;
+  }, [queryClient]);
+
+  if (user) return <CustomerSupportChat user={user} floating />;
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">
