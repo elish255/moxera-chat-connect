@@ -1,8 +1,18 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MessageCircle, X } from "lucide-react";
+import { CustomerSupportChat } from "@/components/customer-support-chat";
+import { getCurrentMoxeraUser } from "@/lib/auth";
 
 export function CustomerServiceFloating() {
   const [open, setOpen] = useState(false);
+  const { data: user } = useQuery({
+    queryKey: ["moxera-current-user"],
+    queryFn: getCurrentMoxeraUser,
+    staleTime: 30_000,
+  });
+
+  if (user?.status === "active") return <CustomerSupportChat user={user} />;
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">
