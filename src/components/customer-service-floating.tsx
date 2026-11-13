@@ -12,7 +12,8 @@ export function CustomerServiceFloating() {
     staleTime: 30_000,
   });
 
-  if (user?.status === "active") return <CustomerSupportChat user={user} />;
+  if (user?.status === "active")
+    return <CustomerSupportChat user={user} floating />;
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">

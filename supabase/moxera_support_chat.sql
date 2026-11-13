@@ -49,6 +49,7 @@ create policy moxera_support_messages_read_own_incoming on public.moxera_support
     (user_id = (select auth.uid()) and sender_role = 'admin')
     or (public.moxera_is_admin() and sender_role = 'user')
   );
+grant select, insert on table public.moxera_support_messages to authenticated;
 revoke update on public.moxera_support_messages from authenticated;
 grant update (read_at) on public.moxera_support_messages to authenticated;
 

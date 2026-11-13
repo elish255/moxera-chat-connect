@@ -455,7 +455,13 @@ function MessageList({
   );
 }
 
-export function CustomerSupportChat({ user }: { user: MoxeraUser }) {
+export function CustomerSupportChat({
+  user,
+  floating = false,
+}: {
+  user: MoxeraUser;
+  floating?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const userId = user.id ?? "";
@@ -504,20 +510,45 @@ export function CustomerSupportChat({ user }: { user: MoxeraUser }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          size="sm"
+          size={floating ? "icon" : "sm"}
           variant="outline"
-          className="relative"
-          aria-label={`Customer Services${unread.data ? `, ${unread.data} ujumbe mpya` : ""}`}
+          className={
+            floating
+              ? "customer-service-blink fixed bottom-5 right-4 z-50 flex size-18 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-card p-0 shadow-2xl ring-2 ring-primary/40 transition-transform hover:scale-105 focus-visible:ring-4 sm:right-6 sm:size-20"
+              : "relative"
+          }
+          aria-label={`Fungua Customer Services${unread.data ? `, ${unread.data} ujumbe mpya` : ""}`}
+          aria-haspopup="dialog"
         >
-          <MessageCircle data-icon="inline-start" />
-          Customer Services
-          {Boolean(unread.data) && (
-            <span
-              className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-5 text-destructive-foreground"
-              aria-label={`${unread.data} ujumbe mpya`}
-            >
-              {unread.data}
-            </span>
+          {floating ? (
+            <>
+              <img
+                src="/customer-care.png"
+                alt=""
+                aria-hidden="true"
+                className="size-full object-cover"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -top-0.5 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
+              >
+                {unread.data ? (
+                  <span className="text-[10px] font-bold">{unread.data}</span>
+                ) : (
+                  <MessageCircle />
+                )}
+              </span>
+            </>
+          ) : (
+            <>
+              <MessageCircle data-icon="inline-start" />
+              Customer Services
+              {Boolean(unread.data) && (
+                <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-5 text-destructive-foreground">
+                  {unread.data}
+                </span>
+              )}
+            </>
           )}
         </Button>
       </DialogTrigger>
