@@ -181,6 +181,21 @@
   transform-origin: center bottom;
 }
 
+@keyframes notification-vibrate {
+  0%, 84%, 100% { transform: translateX(0) rotate(0); }
+  86% { transform: translateX(-2px) rotate(-5deg); }
+  88% { transform: translateX(2px) rotate(5deg); }
+  90% { transform: translateX(-2px) rotate(-4deg); }
+  92% { transform: translateX(2px) rotate(4deg); }
+  94% { transform: translateX(-1px) rotate(-2deg); }
+  96% { transform: translateX(0) rotate(0); }
+}
+
+.notification-vibrate {
+  animation: notification-vibrate 2.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
 @keyframes register-bounce {
   0%, 100% { transform: translateY(0) scale(1); }
   20% { transform: translateY(-5px) scale(1.02); }
@@ -195,7 +210,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .register-bounce,
-  .customer-service-blink {
+  .customer-service-blink,
+  .notification-vibrate {
     animation: none;
   }
 }
