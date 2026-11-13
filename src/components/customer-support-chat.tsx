@@ -404,7 +404,9 @@ function MessageList({
             key={message.id}
             className={`flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
           >
-            <span className={`text-xs font-semibold text-muted-foreground ${mine ? "text-right" : "text-left"}`}>
+            <span
+              className={`text-xs font-semibold text-muted-foreground ${mine ? "text-right" : "text-left"}`}
+            >
               {senderLabel}
             </span>
             <div
@@ -573,6 +575,7 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
   const queryClient = useQueryClient();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(false);
+  const [markingRead, setMarkingRead] = useState(false);
   const audioContext = useRef<AudioContext | null>(null);
   const messagesQuery = useQuery({
     queryKey: ["support-admin-messages"],
@@ -616,7 +619,10 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
         .reverse();
     },
   });
-  const allMessages = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
+  const allMessages = useMemo(
+    () => messagesQuery.data ?? [],
+    [messagesQuery.data],
+  );
   const conversations = useMemo(() => {
     const latestByUser = new Map<string, SupportMessage>();
     for (const message of allMessages)
@@ -635,6 +641,10 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
       }))
       .sort((a, b) => b.latest.created_at.localeCompare(a.latest.created_at));
   }, [allMessages]);
+  const totalUnread = conversations.reduce(
+    (total, conversation) => total + conversation.unread,
+    0,
+  );
   const selected =
     conversations.find(
       (conversation) => conversation.userId === selectedUserId,
@@ -653,6 +663,51 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
       });
     },
   );
+
+  async function markMessagesAsRead(userId?: string) {
+    if (!supabase || markingRead) return;
+    const unreadIds = allMessages
+      .filter(
+        (message) =>
+          message.sender_role === "user" &&
+          !message.read_at &&
+          (!userId || message.user_id === userId),
+      )
+      .map((message) => message.id);
+    if (!unreadIds.length) return;
+
+    setMarkingRead(true);
+    try {
+      const readAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("moxera_support_messages")
+        .update({ read_at: readAt })
+        .in("id", unreadIds);
+      if (error) throw error;
+
+      queryClient.setQueryData<SupportMessage[]>(
+        ["support-admin-messages"],
+        (current) =>
+          current?.map((message) =>
+            unreadIds.includes(message.id)
+              ? { ...message, read_at: readAt }
+              : message,
+          ),
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["support-admin-messages"],
+      });
+      toast.success(
+        userId
+          ? "Ujumbe umewekwa kuwa umesomwa."
+          : "Ujumbe wote umewekwa kuwa umesomwa.",
+      );
+    } catch {
+      toast.error("Imeshindikana kuweka ujumbe kuwa umesomwa.");
+    } finally {
+      setMarkingRead(false);
+    }
+  }
 
   useEffect(() => {
     if (!supabase || !adminId) return;
@@ -748,21 +803,32 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
             Jibu ujumbe wa wateja moja kwa moja.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            soundOn ? setSoundOn(false) : void enableNotifications()
-          }
-        >
-          {soundOn ? (
-            <Volume2 data-icon="inline-start" />
-          ) : (
-            <VolumeX data-icon="inline-start" />
-          )}
-          {soundOn ? "Sauti imewashwa" : "Washa arifa za sauti"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={totalUnread === 0 || markingRead}
+            onClick={() => void markMessagesAsRead()}
+          >
+            Mark all as read
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              soundOn ? setSoundOn(false) : void enableNotifications()
+            }
+          >
+            {soundOn ? (
+              <Volume2 data-icon="inline-start" />
+            ) : (
+              <VolumeX data-icon="inline-start" />
+            )}
+            {soundOn ? "Sauti imewashwa" : "Washa arifa za sauti"}
+          </Button>
+        </div>
       </div>
       <div className="mt-4 grid min-h-[440px] overflow-hidden rounded-xl border md:grid-cols-[220px_minmax(0,1fr)]">
         <aside
@@ -771,33 +837,47 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
         >
           {conversations.length ? (
             conversations.map((conversation) => (
-              <button
-                key={conversation.userId}
-                type="button"
-                onClick={() => setSelectedUserId(conversation.userId)}
-                className={`flex w-full flex-col gap-1 border-b px-3 py-3 text-left transition-colors hover:bg-muted ${selectedUserId === conversation.userId ? "bg-muted" : "bg-card"}`}
-              >
-                <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
-                  <span className="truncate">@{conversation.username}</span>
-                  {conversation.unread > 0 && (
-                    <span className="rounded-full bg-destructive px-2 text-xs text-destructive-foreground">
-                      {conversation.unread}
-                    </span>
-                  )}
-                </span>
-                <span className="w-full truncate text-xs text-muted-foreground">
-                  {conversation.latest.body ||
-                    (conversation.latest.attachment_type?.startsWith("audio/")
-                      ? "Ujumbe wa sauti"
-                      : "Picha")}
-                </span>
-                <time
-                  className="text-[10px] text-muted-foreground"
-                  dateTime={conversation.latest.created_at}
+              <div key={conversation.userId} className="border-b">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserId(conversation.userId)}
+                  className={`flex w-full flex-col gap-1 px-3 py-3 text-left transition-colors hover:bg-muted ${selectedUserId === conversation.userId ? "bg-muted" : "bg-card"}`}
                 >
-                  {new Date(conversation.latest.created_at).toLocaleString()}
-                </time>
-              </button>
+                  <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+                    <span className="truncate">@{conversation.username}</span>
+                    {conversation.unread > 0 && (
+                      <span className="rounded-full bg-destructive px-2 text-xs text-destructive-foreground">
+                        {conversation.unread}
+                      </span>
+                    )}
+                  </span>
+                  <span className="w-full truncate text-xs text-muted-foreground">
+                    {conversation.latest.body ||
+                      (conversation.latest.attachment_type?.startsWith("audio/")
+                        ? "Ujumbe wa sauti"
+                        : "Picha")}
+                  </span>
+                  <time
+                    className="text-[10px] text-muted-foreground"
+                    dateTime={conversation.latest.created_at}
+                  >
+                    {new Date(conversation.latest.created_at).toLocaleString()}
+                  </time>
+                </button>
+                {conversation.unread > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mx-2 mb-2 h-8"
+                    disabled={markingRead}
+                    aria-label={`Mark messages from @${conversation.username} as read`}
+                    onClick={() => void markMessagesAsRead(conversation.userId)}
+                  >
+                    Mark as read
+                  </Button>
+                )}
+              </div>
             ))
           ) : (
             <p className="p-4 text-sm text-muted-foreground">
@@ -822,7 +902,11 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
                   </p>
                 </div>
               </div>
-              <MessageList messages={activeMessages} currentUserId={adminId} currentLabel="Customer Service" />
+              <MessageList
+                messages={activeMessages}
+                currentUserId={adminId}
+                currentLabel="Customer Service"
+              />
               <Composer composer={composer} />
             </>
           ) : (
