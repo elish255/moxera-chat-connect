@@ -132,7 +132,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
-      {!pathname.startsWith("/chat/") && pathname !== "/dashboard" && <CustomerServiceFloating />}
+      {!pathname.startsWith("/chat/") && <CustomerServiceFloating />}
     </QueryClientProvider>
   );
 }
