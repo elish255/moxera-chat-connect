@@ -13,16 +13,17 @@ export const Route = createFileRoute("/register")({ component: Register });
 
 function Register() {
   const navigate = useNavigate();
+  const referralCode = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("ref")?.trim() || "";
   const [busy,setBusy]=useState(false);
   const [form,setForm]=useState({fullName:"",username:"",phone:"",email:"",country:"",password:"",confirm:""});
   const set=(k:string,v:string)=>setForm(x=>({...x,[k]:v}));
   async function submit(e:FormEvent){
     e.preventDefault();
-    if(form.password.length<6) return toast.error("Password iwe na angalau herufi 6.");
-    if(form.password!==form.confirm) return toast.error("Password hazifanani.");
+    if(form.password.length<6) { toast.error("Password iwe na angalau herufi 6."); return; }
+    if(form.password!==form.confirm) { toast.error("Password hazifanani."); return; }
     setBusy(true);
     try {
-      await registerMoxeraUser({...form, country:form.country});
+      await registerMoxeraUser({...form, country:form.country, referralCode});
       try {
         await sendMoxeraRegistrationSms({ data: { phone: form.phone, username: form.username } });
         toast.success("Usajili umefanikiwa. SMS imetumwa.");

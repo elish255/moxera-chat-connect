@@ -383,6 +383,7 @@ export type MoxeraUser = {
   paymentStatus?: "unpaid" | "pending" | "paid" | "rejected";
   membershipLevel?: "normal" | "premium" | "vip";
   invitedCount?: number;
+  referralCode?: string;
   balance?: number;
   registeredAt: string;
 };

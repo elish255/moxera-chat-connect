@@ -3,14 +3,14 @@ import type { MoxeraUser } from "./moxera";
 import { normalizeTanzaniaPhone } from "./phone";
 
 export async function registerMoxeraUser(data: {
-  fullName: string; username: string; phone: string; email: string; country: string; password: string;
+  fullName: string; username: string; phone: string; email: string; country: string; password: string; referralCode?: string;
 }) {
   const db = requireSupabase();
   const normalizedPhone = normalizeTanzaniaPhone(data.phone);
   const { data: auth, error } = await db.auth.signUp({
     email: data.email.trim().toLowerCase(),
     password: data.password,
-    options: { data: { full_name: data.fullName, username: data.username.trim(), phone: normalizedPhone, country: data.country } },
+    options: { data: { full_name: data.fullName, username: data.username.trim(), phone: normalizedPhone, country: data.country, ...(data.referralCode?.trim() ? { referral_code: data.referralCode.trim() } : {}) } },
   });
   if (error) throw error;
   if (!auth.user) throw new Error("Usajili haujakamilika.");
@@ -47,12 +47,16 @@ export async function getCurrentMoxeraUser(): Promise<MoxeraUser | null> {
   if (!session.session?.user) return null;
   const { data, error } = await supabase.from("moxera_users").select("*").eq("id", session.session.user.id).maybeSingle();
   if (error) throw error;
-  return data ? {
+  if (!data) return null;
+  const { data: referralCount, error: referralCountError } = await supabase.rpc("moxera_get_referral_count");
+  return {
     id: data.id, fullName: data.full_name, username: data.username, phone: data.phone,
     email: data.email, country: data.country, status: data.status, paymentStatus: data.payment_status,
-    membershipLevel: data.membership_level ?? "normal", invitedCount: Number(data.invited_count ?? 0),
+    membershipLevel: data.membership_level ?? "normal",
+    invitedCount: referralCountError ? Number(data.invited_count ?? 0) : Number(referralCount ?? 0),
+    referralCode: data.referral_code,
     balance: Number(data.balance ?? 0), registeredAt: data.created_at,
-  } : null;
+  };
 }
 
 export async function signOutMoxera() {
