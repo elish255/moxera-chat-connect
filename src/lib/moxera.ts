@@ -278,15 +278,80 @@ const FOREIGNERS: Foreigner[] = [
   })),
 ];
 
-export function pickForeigners(count = 12): Foreigner[] {
-  const pool = [...FOREIGNERS];
-  for (let i = pool.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const a = pool[i]!;
-    pool[i] = pool[j]!;
-    pool[j] = a;
+const rotationDecks = new Map<
+  number,
+  {
+    remaining: Foreigner[];
+    previousIds: Set<string>;
+    previousAvatars: Set<string>;
   }
-  return pool.slice(0, count);
+>();
+
+function shuffleForeigners(profiles: Foreigner[]): Foreigner[] {
+  const shuffled = [...profiles];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  return shuffled;
+}
+
+export function pickForeigners(count = 12): Foreigner[] {
+  const safeCount = Math.max(0, Math.min(Math.floor(count), FOREIGNERS.length));
+  if (safeCount === 0) return [];
+
+  const state = rotationDecks.get(safeCount);
+  let deck = state?.remaining ?? shuffleForeigners(FOREIGNERS);
+
+  if (deck.length < safeCount) {
+    const queuedIds = new Set(deck.map((profile) => profile.id));
+    const nextProfiles = FOREIGNERS.filter(
+      (profile) =>
+        !queuedIds.has(profile.id) && !state?.previousIds.has(profile.id),
+    );
+    deck = [...deck, ...shuffleForeigners(nextProfiles)];
+
+    if (deck.length < safeCount) {
+      deck = [
+        ...deck,
+        ...shuffleForeigners(
+          FOREIGNERS.filter((profile) => !queuedIds.has(profile.id)),
+        ),
+      ];
+    }
+  }
+
+  const selected: Foreigner[] = [];
+  let remaining = deck;
+  const fillBatch = (allowPreviousAvatars: boolean, allowDuplicateAvatars: boolean) => {
+    const deferred: Foreigner[] = [];
+    for (const profile of remaining) {
+      const hasAvatarAlready = selected.some(
+        (picked) => picked.avatar === profile.avatar,
+      );
+      if (
+        selected.length < safeCount &&
+        (allowPreviousAvatars || !state?.previousAvatars.has(profile.avatar)) &&
+        (allowDuplicateAvatars || !hasAvatarAlready)
+      ) {
+        selected.push(profile);
+      } else {
+        deferred.push(profile);
+      }
+    }
+    remaining = deferred;
+  };
+
+  fillBatch(false, false);
+  fillBatch(true, false);
+  fillBatch(true, true);
+
+  rotationDecks.set(safeCount, {
+    remaining,
+    previousIds: new Set(selected.map((profile) => profile.id)),
+    previousAvatars: new Set(selected.map((profile) => profile.avatar)),
+  });
+  return selected;
 }
 
 export function getForeigner(id: string): Foreigner | undefined {
