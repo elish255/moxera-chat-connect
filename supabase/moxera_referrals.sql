@@ -15,6 +15,10 @@ alter table public.moxera_users
 create unique index if not exists moxera_users_referral_code_key
   on public.moxera_users (referral_code);
 
+create index if not exists moxera_users_referred_by_idx
+  on public.moxera_users (referred_by)
+  where referred_by is not null;
+
 create or replace function public.moxera_sync_invited_count()
 returns trigger
 language plpgsql
