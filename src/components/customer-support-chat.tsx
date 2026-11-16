@@ -11,6 +11,7 @@ import {
   Bell,
   ImagePlus,
   MessageCircle,
+  MessageSquareText,
   Mic,
   Send,
   Volume2,
@@ -468,6 +469,7 @@ export function CustomerSupportChat({
   floating?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"options" | "chat">("options");
   const queryClient = useQueryClient();
   const userId = user.id ?? "";
   const username = user.username ?? "Mteja";
@@ -485,7 +487,7 @@ export function CustomerSupportChat({
       return count ?? 0;
     },
   });
-  const messages = useIncomingMessages(userId, open);
+  const messages = useIncomingMessages(userId, open && view === "chat");
   const composer = useMessageComposer(userId, username, "user", () => {
     void queryClient.invalidateQueries({
       queryKey: ["support-messages", userId],
@@ -493,7 +495,7 @@ export function CustomerSupportChat({
   });
 
   useEffect(() => {
-    if (!supabase || !open) return;
+    if (!supabase || !open || view !== "chat") return;
     const pending =
       messages.data?.filter(
         (message) => message.sender_role === "admin" && !message.read_at,
@@ -509,10 +511,16 @@ export function CustomerSupportChat({
     void queryClient.invalidateQueries({
       queryKey: ["support-unread", userId],
     });
-  }, [messages.data, open, queryClient, userId]);
+  }, [messages.data, open, queryClient, userId, view]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setView("options");
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           size={floating ? "icon" : "sm"}
@@ -557,15 +565,70 @@ export function CustomerSupportChat({
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex h-[min(80dvh,640px)] max-w-lg flex-col gap-3 p-4 sm:p-5">
-        <DialogHeader>
-          <DialogTitle>Customer Service</DialogTitle>
-          <DialogDescription>
-            Tuma ujumbe, picha au sauti. Timu yetu itakujibu hapa.
-          </DialogDescription>
-        </DialogHeader>
-        <MessageList messages={messages.data ?? []} currentUserId={userId} />
-        <Composer composer={composer} />
+      <DialogContent
+        className={
+          view === "chat"
+            ? "flex h-[min(80dvh,640px)] max-w-lg flex-col gap-3 p-4 sm:p-5"
+            : "max-w-sm p-5 sm:p-6"
+        }
+      >
+        {view === "options" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Customer Services</DialogTitle>
+              <DialogDescription>
+                Chagua namna ya kuwasiliana nasi.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <Button
+                className="h-12 w-full justify-start"
+                variant="outline"
+                onClick={() => setView("chat")}
+              >
+                <MessageCircle data-icon="inline-start" />
+                Chati nasi online
+              </Button>
+              <Button
+                asChild
+                className="h-12 w-full justify-start"
+                variant="outline"
+              >
+                <a
+                  href="sms:0743871339?body=Nielekeze%20kuhusu%20Moxera"
+                  onClick={() => setOpen(false)}
+                >
+                  <MessageSquareText data-icon="inline-start" />
+                  Normal SMS
+                </a>
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <DialogHeader>
+                <DialogTitle>Customer Service</DialogTitle>
+                <DialogDescription>
+                  Tuma ujumbe, picha au sauti. Timu yetu itakujibu hapa.
+                </DialogDescription>
+              </DialogHeader>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setView("options")}
+              >
+                Badili njia
+              </Button>
+            </div>
+            <MessageList
+              messages={messages.data ?? []}
+              currentUserId={userId}
+            />
+            <Composer composer={composer} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

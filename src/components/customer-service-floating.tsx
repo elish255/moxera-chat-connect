@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, MessageSquareText, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CustomerSupportChat } from "@/components/customer-support-chat";
 import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
 
 export function CustomerServiceFloating() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [showOnlineRequirement, setShowOnlineRequirement] = useState(false);
   const { data: user } = useQuery({
     queryKey: ["moxera-current-user"],
     queryFn: getCurrentMoxeraUser,
@@ -29,31 +31,70 @@ export function CustomerServiceFloating() {
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">
       {open && (
-        <div className="mb-1 w-[min(320px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2">
+        <div className="mb-1 flex w-[min(320px,calc(100vw-2rem))] flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <MessageCircle className="h-5 w-5" />
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <MessageCircle className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-extrabold text-foreground">Customer Service</p>
+              <p className="text-sm font-extrabold text-foreground">
+                Customer Services
+              </p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Jisajili Kwanza na Activate Account yko ili Kupata Msaada
+                Chagua namna ya kuwasiliana nasi.
               </p>
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => setShowOnlineRequirement((value) => !value)}
+            >
+              <MessageCircle data-icon="inline-start" />
+              Chati nasi online
+            </Button>
+            <Button asChild className="w-full justify-start" variant="outline">
+              <a
+                href="sms:0743871339?body=Nielekeze%20kuhusu%20Moxera"
+                onClick={() => setOpen(false)}
+              >
+                <MessageSquareText data-icon="inline-start" />
+                Normal SMS
+              </a>
+            </Button>
+          </div>
+          {showOnlineRequirement && (
+            <p className="text-sm leading-6 text-muted-foreground">
+              Jisajili kwanza na u-activate akaunti yako ili kufungua chat ya
+              online.
+            </p>
+          )}
         </div>
       )}
 
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setOpen((value) => !value);
+          setShowOnlineRequirement(false);
+        }}
         aria-label={open ? "Funga Customer Service" : "Fungua Customer Service"}
         aria-expanded={open}
         className="customer-service-blink group relative flex h-[74px] w-[74px] items-center justify-center overflow-hidden rounded-full border-4 border-background bg-card shadow-2xl ring-2 ring-primary/40 transition-transform hover:scale-105 sm:h-20 sm:w-20"
       >
-        <img src="/customer-care.png" alt="Customer Care" className="h-full w-full object-cover" />
+        <img
+          src="/customer-care.png"
+          alt="Customer Care"
+          className="h-full w-full object-cover"
+        />
         <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-          {open ? <X className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
+          {open ? (
+            <X className="h-3.5 w-3.5" />
+          ) : (
+            <MessageCircle className="h-3.5 w-3.5" />
+          )}
         </span>
       </button>
     </div>
