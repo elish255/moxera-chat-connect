@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { usePaymentToasts } from "@/hooks/use-payment-toasts";
 import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg";
-import { pickForeigners, type Foreigner, ACTIVATION_FEE } from "@/lib/moxera";
+import { pickForeigners, type Foreigner, type MoxeraUser, ACTIVATION_FEE } from "@/lib/moxera";
 import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
@@ -30,18 +30,23 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const [list, setList] = useState<Foreigner[]>([]);
-  const [username, setUsername] = useState<string | null>(null);
+  const [user, setUser] = useState<MoxeraUser | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     setList(pickForeigners(4));
-    getCurrentMoxeraUser().then(u => setUsername(u?.username ?? null));
-    const unsub = subscribeAuth(() => getCurrentMoxeraUser().then(u => setUsername(u?.username ?? null)));
+    getCurrentMoxeraUser().then(u => setUser(u ?? null));
+    const unsub = subscribeAuth(() => getCurrentMoxeraUser().then(u => setUser(u ?? null)));
     const t = setInterval(() => setList(pickForeigners(4)), 8000);
     return () => { clearInterval(t); unsub(); };
   }, []);
 
   usePaymentToasts();
+
+  const isActivated = user?.paymentStatus === "paid";
+  const ctaHref = !user ? "/register" : isActivated ? "/dashboard" : "/payment";
+  const headerCtaLabel = !user ? "Jisajili" : isActivated ? "Dashboard" : "Lipia";
+  const bottomCtaLabel = !user ? "JISAJILI SASA" : isActivated ? "DASHBOARD" : "LIPIA SASA";
 
   return (
     <main className="min-h-screen overflow-hidden pb-16">
@@ -57,13 +62,13 @@ function Home() {
             </div>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
-            {!username && (
+            {!user && (
               <Button asChild size="sm" variant="outline" className="h-10 rounded-full border-2 border-panel-foreground/40 bg-transparent px-4 text-sm font-extrabold sm:h-12 sm:px-5 sm:text-base text-panel-foreground hover:bg-panel-foreground/10 hover:text-panel-foreground">
                 <a href="/login">Ingia</a>
               </Button>
             )}
-            <Button asChild size="sm" variant={username ? "secondary" : "default"} className="register-bounce h-10 rounded-full px-4 text-sm font-extrabold shadow-lg sm:h-12 sm:px-6 sm:text-base">
-              <a href={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</a>
+            <Button asChild size="sm" variant={isActivated ? "secondary" : "default"} className="register-bounce h-10 rounded-full px-4 text-sm font-extrabold shadow-lg sm:h-12 sm:px-6 sm:text-base">
+              <a href={ctaHref}>{headerCtaLabel}</a>
             </Button>
           </div>
         </div>
@@ -196,7 +201,7 @@ function Home() {
           </div>
           <div className="rounded-2xl bg-primary-foreground/15 p-2 shadow-inner ring-1 ring-primary-foreground/20">
             <Button asChild className="register-bounce h-16 min-w-52 rounded-xl bg-white px-10 text-lg font-extrabold text-primary shadow-xl hover:bg-white/90">
-              <a href="/register">JISAJILI SASA</a>
+              <a href={ctaHref}>{bottomCtaLabel}</a>
             </Button>
           </div>
         </div>
