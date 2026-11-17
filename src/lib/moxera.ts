@@ -6,9 +6,13 @@ import lucy from "@/assets/avatars/lucy.jpg";
 import marco from "@/assets/avatars/marco.jpg";
 import anna from "@/assets/avatars/anna.jpg";
 import david from "@/assets/avatars/david.jpg";
+import liam from "@/assets/avatars/liam.png";
+import clara from "@/assets/avatars/clara.png";
+import erik from "@/assets/avatars/erik.png";
+import grace from "@/assets/avatars/grace.png";
 
 const AVATARS: Record<string, string> = {
-  emma, james, sophie, hans, lucy, marco, anna, david,
+  emma, james, sophie, hans, lucy, marco, anna, david, liam, clara, erik, grace,
 };
 
 export type Foreigner = {
@@ -225,6 +229,7 @@ type Seed = {
   from: string;
   wants: string;
   minutes: number;
+  avatar?: string;
 };
 
 const SEEDS: Seed[] = [
@@ -240,6 +245,14 @@ const SEEDS: Seed[] = [
   { id: "harry", name: "Harry", country: "USA", flag: "🇺🇸", age: 35, platform: "YouTube", rate: 51000, online: true, from: "james", wants: "Methali za Kiswahili", minutes: 58 },
   { id: "elise", name: "Elise", country: "Belgium", flag: "🇧🇪", age: 30, platform: "Facebook", rate: 45500, online: false, from: "sophie", wants: "Historia ya Zanzibar", minutes: 47 },
   { id: "noah", name: "Noah", country: "Netherlands", flag: "🇳🇱", age: 32, platform: "WhatsApp", rate: 47500, online: true, from: "david", wants: "Mazungumzo ya Kila Siku", minutes: 50 },
+  { id: "liam", name: "Liam", country: "Ireland", flag: "🇮🇪", age: 32, platform: "WhatsApp", rate: 50500, online: true, from: "james", avatar: "liam", wants: "Muziki & Utamaduni", minutes: 54 },
+  { id: "clara", name: "Clara", country: "Spain", flag: "🇪🇸", age: 28, platform: "Instagram", rate: 44500, online: true, from: "sophie", avatar: "clara", wants: "Fukwe za Zanzibar", minutes: 44 },
+  { id: "erik", name: "Erik", country: "Denmark", flag: "🇩🇰", age: 47, platform: "Facebook", rate: 53000, online: true, from: "hans", avatar: "erik", wants: "Kilimo & Biashara", minutes: 61 },
+  { id: "grace", name: "Grace", country: "USA", flag: "🇺🇸", age: 34, platform: "YouTube", rate: 48500, online: true, from: "lucy", avatar: "grace", wants: "Hifadhi za Wanyama", minutes: 52 },
+  { id: "sebastian", name: "Sebastian", country: "Switzerland", flag: "🇨🇭", age: 39, platform: "WhatsApp", rate: 52500, online: true, from: "david", wants: "Utalii wa Kilimanjaro", minutes: 59 },
+  { id: "isabella", name: "Isabella", country: "Portugal", flag: "🇵🇹", age: 27, platform: "TikTok", rate: 42000, online: true, from: "anna", wants: "Ngoma za Asili", minutes: 41 },
+  { id: "lucas", name: "Lucas", country: "Austria", flag: "🇦🇹", age: 30, platform: "Instagram", rate: 46000, online: false, from: "marco", wants: "Vyakula vya Pwani", minutes: 46 },
+  { id: "charlotte", name: "Charlotte", country: "New Zealand", flag: "🇳🇿", age: 29, platform: "Facebook", rate: 45000, online: true, from: "emma", wants: "Lugha & Methali", minutes: 43 },
 ];
 
 const BASE_BY_ID = new Map(BASE.map((b) => [b.id, b]));
@@ -259,7 +272,7 @@ const EXTRA: Foreigner[] = SEEDS.map((s) => {
     bio: src.bio,
     opener: src.opener.map(rename),
     replies: src.replies.map(rename),
-    avatar: AVATARS[s.from]!,
+    avatar: AVATARS[s.avatar ?? s.from]!,
     wants: s.wants,
     minutes: s.minutes,
     rating: Number((4.5 + ((s.name.length * 7) % 5) / 10).toFixed(1)),
