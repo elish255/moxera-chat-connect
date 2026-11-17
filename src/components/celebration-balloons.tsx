@@ -1,34 +1,47 @@
 import type { CSSProperties } from "react";
 
-const BALLOONS = [
-  { left: "6%", color: "var(--primary)", delay: "0s", duration: "4.2s", size: 34 },
-  { left: "20%", color: "var(--chart-4)", delay: "0.6s", duration: "5s", size: 28 },
-  { left: "34%", color: "var(--lime)", delay: "1.2s", duration: "4.6s", size: 32 },
-  { left: "50%", color: "var(--chart-2)", delay: "0.3s", duration: "5.4s", size: 30 },
-  { left: "64%", color: "var(--primary)", delay: "1.5s", duration: "4.4s", size: 26 },
-  { left: "78%", color: "var(--chart-4)", delay: "0.9s", duration: "5.2s", size: 34 },
-  { left: "90%", color: "var(--lime)", delay: "0.2s", duration: "4.8s", size: 28 },
+type Balloon = { x: number; y: number; size: number; color: string; tilt: number };
+
+const LEFT: Balloon[] = [
+  { x: 2, y: 0, size: 30, color: "var(--primary)", tilt: -10 },
+  { x: 20, y: 22, size: 26, color: "var(--chart-4)", tilt: 6 },
+  { x: 4, y: 52, size: 24, color: "var(--lime)", tilt: -4 },
 ];
 
-export function CelebrationBalloons() {
+const RIGHT: Balloon[] = [
+  { x: 2, y: 0, size: 30, color: "var(--chart-4)", tilt: 10 },
+  { x: 20, y: 24, size: 26, color: "var(--lime)", tilt: -6 },
+  { x: 4, y: 54, size: 24, color: "var(--primary)", tilt: 4 },
+];
+
+function Cluster({ balloons, side }: { balloons: Balloon[]; side: "left" | "right" }) {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      {BALLOONS.map((b, i) => (
+    <div className={`absolute top-6 h-32 w-14 ${side === "left" ? "left-1" : "right-1"}`}>
+      {balloons.map((b, i) => (
         <span
           key={i}
-          className="celebration-balloon"
+          className="celebration-balloon-static"
           style={
             {
-              left: b.left,
+              [side]: b.x,
+              top: b.y,
               width: b.size,
               height: b.size * 1.2,
               "--balloon-color": b.color,
-              animationDelay: b.delay,
-              animationDuration: b.duration,
+              transform: `rotate(${side === "left" ? b.tilt : -b.tilt}deg)`,
             } as CSSProperties
           }
         />
       ))}
+    </div>
+  );
+}
+
+export function CelebrationBalloons() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <Cluster balloons={LEFT} side="left" />
+      <Cluster balloons={RIGHT} side="right" />
     </div>
   );
 }

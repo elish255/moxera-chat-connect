@@ -237,7 +237,24 @@
   background: oklch(0.5 0.02 260 / 0.5);
 }
 
-@media (prefers-reduced-motion: reduce) {
+  .celebration-balloon-static {
+  position: absolute;
+  border-radius: 50% 50% 48% 48% / 55% 55% 45% 45%;
+  background: radial-gradient(circle at 30% 28%, oklch(1 0 0 / 0.55), transparent 32%), var(--balloon-color);
+  box-shadow: inset -3px -4px 0 oklch(0 0 0 / 0.08);
+  }
+
+  .celebration-balloon-static::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: 26px;
+  background: oklch(0.5 0 0 / 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
   .celebration-balloon { animation: none; opacity: 0.6; bottom: auto; top: 8px; }
   .register-bounce,
   .customer-service-blink,
