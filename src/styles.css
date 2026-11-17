@@ -208,7 +208,37 @@
   animation: register-bounce 2.4s ease-in-out infinite;
 }
 
+@keyframes balloon-rise {
+  0% { transform: translateY(0) rotate(-4deg); opacity: 0; }
+  10% { opacity: 0.9; }
+  50% { transform: translateY(-55vh) rotate(5deg); }
+  90% { opacity: 0.9; }
+  100% { transform: translateY(-110vh) rotate(-4deg); opacity: 0; }
+}
+
+.celebration-balloon {
+  position: absolute;
+  bottom: -60px;
+  border-radius: 50% 50% 48% 48% / 55% 55% 45% 45%;
+  background: radial-gradient(circle at 30% 28%, oklch(1 0 0 / 0.55), transparent 32%), var(--balloon-color);
+  opacity: 0;
+  animation-name: balloon-rise;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.celebration-balloon::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: 36px;
+  background: oklch(0.5 0.02 260 / 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .celebration-balloon { animation: none; opacity: 0.6; bottom: auto; top: 8px; }
   .register-bounce,
   .customer-service-blink,
   .notification-vibrate {
