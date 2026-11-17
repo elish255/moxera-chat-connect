@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { playSound } from "@/lib/gochat-sound";
 import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg";
 import { pickForeigners, type Foreigner, ACTIVATION_FEE } from "@/lib/moxera";
@@ -59,38 +60,13 @@ function Home() {
     ];
 
     let index = 0;
-    let audio: HTMLAudioElement | null = null;
-
-    const unlockSound = () => {
-      if (!audio) {
-        audio = new Audio("/notification.wav");
-        audio.preload = "auto";
-        audio.volume = 0.55;
-      }
-      // Prime the audio element after a real user gesture so mobile browsers allow later playback.
-      void audio.play().then(() => {
-        audio?.pause();
-        if (audio) audio.currentTime = 0;
-      }).catch(() => undefined);
-      window.removeEventListener("pointerdown", unlockSound);
-      window.removeEventListener("touchstart", unlockSound);
-    };
-
-    window.addEventListener("pointerdown", unlockSound, { once: true });
-    window.addEventListener("touchstart", unlockSound, { once: true });
-
-    const playNotificationSound = () => {
-      if (!audio) return;
-      audio.currentTime = 0;
-      void audio.play().catch(() => undefined);
-    };
 
     const show = () => {
       // Keep only one payment toast visible at a time. It stays for 3s,
       // then the next toast appears 10s later (13s total cycle).
       toast.dismiss();
       const item = testimonials[index % testimonials.length];
-      playNotificationSound();
+      playSound("notice");
       toast.success(item.name, {
         description: `${item.text} • ${item.time} • Malipo yamefanikiwa`,
         duration: 3000,
@@ -105,8 +81,6 @@ function Home() {
       window.clearTimeout(first);
       window.clearInterval(interval);
       toast.dismiss();
-      window.removeEventListener("pointerdown", unlockSound);
-      window.removeEventListener("touchstart", unlockSound);
     };
   }, []);
 
