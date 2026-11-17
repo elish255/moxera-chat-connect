@@ -8,6 +8,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       position="top-center"
       offset={{ top: "92px" }}
+      mobileOffset={{ top: "80px", left: "16px", right: "16px" }}
+      style={{ "--width": "min(560px, calc(100vw - 32px))" } as React.CSSProperties}
       toastOptions={{
         classNames: {
           toast:

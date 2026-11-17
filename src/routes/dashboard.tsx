@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { pickForeigners, type Foreigner, type MoxeraUser } from "@/lib/moxera";
 import { Button } from "@/components/ui/button";
 import { CelebrationBalloons } from "@/components/celebration-balloons";
+import { usePaymentToasts } from "@/hooks/use-payment-toasts";
 
 export const Route=createFileRoute("/dashboard")({component:Dashboard});
 function membershipCardStyle(level?:string|null):React.CSSProperties{
@@ -20,6 +21,7 @@ function membershipCardStyle(level?:string|null):React.CSSProperties{
  return {background:"#ffead8",color:"#34231d"};
 }
 function Dashboard(){
+usePaymentToasts();
  const nav=useNavigate(); const [user,setUser]=useState<MoxeraUser|null>(null); const [ready,setReady]=useState(false); const [foreigners,setForeigners]=useState<Foreigner[]>([]); const [netIncome,setNetIncome]=useState(0); const [withdrawn,setWithdrawn]=useState(0); const [history,setHistory]=useState<any[]>([]); const [withdrawOpen,setWithdrawOpen]=useState(false); const [amount,setAmount]=useState(""); const [method,setMethod]=useState("M-Pesa"); const [account,setAccount]=useState(""); const [busy,setBusy]=useState(false); const [notifications,setNotifications]=useState<any[]>([]); const [notificationCount,setNotificationCount]=useState(0); const [notificationsOpen,setNotificationsOpen]=useState(false); const [historyOpen,setHistoryOpen]=useState(false); const [upgradePrompt,setUpgradePrompt]=useState<"premium"|"vip"|null>(null);  const [balanceThresholdOpen,setBalanceThresholdOpen]=useState(false);
  useEffect(()=>{getCurrentMoxeraUser().then(u=>{setUser(u);setReady(true);if(u?.status==="banned")toast.error("Account yako imefungiwa.");}).catch(()=>setReady(true));setForeigners(pickForeigners(12));const t=setInterval(()=>setForeigners(pickForeigners(12)),15000);return()=>clearInterval(t)},[]);
  useEffect(()=>{if(!user)return;const isNormal=String(user.membershipLevel||"normal").toLowerCase()==="normal";if(!isNormal||Number(user.balance||0)<50000)return;setBalanceThresholdOpen(true);const timer=window.setInterval(()=>setBalanceThresholdOpen(true),5*60*1000);return()=>window.clearInterval(timer)},[user?.id,user?.balance,user?.membershipLevel]);
