@@ -48,17 +48,24 @@ function Home() {
       <header className="text-panel-foreground" style={{ background: "var(--gradient-panel)" }}>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-3">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-lg ring-2 ring-primary/40">
+            <span className="flex h-12 w-12 shrink-0 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-white p-1.5 shadow-lg ring-2 ring-primary/40">
               <img src={logo} alt="Moxera Agencies" className="h-full w-full rounded-xl object-contain" />
             </span>
             <div className="min-w-0">
-              <p className="font-heading text-sm font-bold uppercase">Moxera Agencies</p>
-              <p className="text-[10px] uppercase tracking-widest text-panel-foreground/60">The chat agency</p>
+              <p className="font-heading text-xs font-bold uppercase leading-tight sm:text-sm">Moxera Agencies</p>
+              <p className="hidden text-[10px] uppercase sm:block tracking-widest text-panel-foreground/60">The chat agency</p>
             </div>
           </Link>
-          <Button asChild size="sm" variant={username ? "secondary" : "default"} className="register-bounce h-12 rounded-full px-7 text-base font-extrabold shadow-lg">
-            <a href={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</a>
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {!username && (
+              <Button asChild size="sm" variant="outline" className="h-10 rounded-full border-2 border-panel-foreground/40 bg-transparent px-4 text-sm font-extrabold sm:h-12 sm:px-5 sm:text-base text-panel-foreground hover:bg-panel-foreground/10 hover:text-panel-foreground">
+                <a href="/login">Ingia</a>
+              </Button>
+            )}
+            <Button asChild size="sm" variant={username ? "secondary" : "default"} className="register-bounce h-10 rounded-full px-4 text-sm font-extrabold shadow-lg sm:h-12 sm:px-6 sm:text-base">
+              <a href={username ? "/dashboard" : "/register"}>{username ? "Dashboard" : "Jisajili"}</a>
+            </Button>
+          </div>
         </div>
 
         <section className="mx-auto grid max-w-5xl gap-8 px-5 pb-12 pt-8 sm:px-8 md:grid-cols-[1.2fr_0.8fr] md:items-end md:pb-16">
