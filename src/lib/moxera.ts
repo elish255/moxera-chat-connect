@@ -383,7 +383,7 @@ export const TESTIMONIALS: Testimonial[] = [
   { name: "Zawadi L.", place: "Tanga", amount: 165500, note: "Nimechat na Jonathan, nimelipwa" },
 ];
 
-export const ACTIVATION_FEE = 16000;
+export const ACTIVATION_FEE = 15000;
 
 export type MoxeraUser = {
   id?: string;
