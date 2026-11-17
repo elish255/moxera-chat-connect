@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { playSound } from "@/lib/gochat-sound";
+import { usePaymentToasts } from "@/hooks/use-payment-toasts";
 import { MessageCircle, ShieldCheck, Wallet, Globe2, ArrowUpRight, Sparkles, BadgeCheck } from "lucide-react";
 import logo from "@/assets/moxera-logo.jpg";
 import { pickForeigners, type Foreigner, ACTIVATION_FEE } from "@/lib/moxera";
@@ -42,47 +41,7 @@ function Home() {
     return () => { clearInterval(t); unsub(); };
   }, []);
 
-  useEffect(() => {
-    // Demo testimonials: sample UI entries; replace with verified customer feedback before publishing.
-    const testimonials = [
-      { name: "Juma Malecela (+255 763...267)", amount: "88,000", text: "ametoa TSh 88,000 akiwa Iringa", time: "Dakika 9 zilizopita" },
-      { name: "Amina Hassan (+255 754...875)", amount: "50,000", text: "amepokea TSh 50,000 kutoka Zanzibar", time: "Dakika 12 zilizopita" },
-      { name: "Neema Joseph (+255 713...402)", amount: "120,000", text: "amelipwa TSh 120,000 kwa kuchat", time: "Dakika 15 zilizopita" },
-      { name: "Hassan Ally (+255 768...119)", amount: "150,000", text: "amepokea TSh 150,000 kwa mazungumzo", time: "Dakika 18 zilizopita" },
-      { name: "Rehema John (+255 655...831)", amount: "70,000", text: "amelipwa TSh 70,000 kupitia Moxera", time: "Dakika 21 zilizopita" },
-      { name: "Baraka Mussa (+255 719...544)", amount: "95,000", text: "amepokea TSh 95,000 kwa kuchat", time: "Dakika 24 zilizopita" },
-      { name: "Zawadi Said (+255 742...901)", amount: "110,000", text: "amelipwa TSh 110,000 baada ya mazungumzo", time: "Dakika 27 zilizopita" },
-      { name: "Mariam Omar (+255 714...620)", amount: "65,000", text: "amepokea TSh 65,000 kwa kuchat", time: "Dakika 30 zilizopita" },
-      { name: "Abdallah Salim (+255 756...315)", amount: "130,000", text: "amelipwa TSh 130,000 kwa mazungumzo", time: "Dakika 34 zilizopita" },
-      { name: "Esther Peter (+255 687...208)", amount: "80,000", text: "amepokea TSh 80,000 kupitia Moxera", time: "Dakika 37 zilizopita" },
-      { name: "Kelvin Simon (+255 625...774)", amount: "105,000", text: "amelipwa TSh 105,000 kwa kuchat", time: "Dakika 41 zilizopita" },
-      { name: "Salma Juma (+255 699...462)", amount: "55,000", text: "amepokea TSh 55,000 baada ya kuchat", time: "Dakika 45 zilizopita" },
-    ];
-
-    let index = 0;
-
-    const show = () => {
-      // Keep only one payment toast visible at a time. It stays for 3s,
-      // then the next toast appears 10s later (13s total cycle).
-      toast.dismiss();
-      const item = testimonials[index % testimonials.length];
-      playSound("notice");
-      toast.success(item.name, {
-        description: `${item.text} • ${item.time} • Malipo yamefanikiwa`,
-        duration: 3000,
-        className: "moxera-payment-toast",
-      });
-      index += 1;
-    };
-
-    const first = window.setTimeout(show, 1800);
-    const interval = window.setInterval(show, 13000);
-    return () => {
-      window.clearTimeout(first);
-      window.clearInterval(interval);
-      toast.dismiss();
-    };
-  }, []);
+  usePaymentToasts();
 
   return (
     <main className="min-h-screen overflow-hidden pb-16">

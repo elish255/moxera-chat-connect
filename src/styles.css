@@ -249,7 +249,6 @@
 
 /* Payment toast inspired by the supplied Tvideo reference: compact, bright, top-of-content notification. */
 .moxera-payment-toast {
-  width: min(640px, calc(100vw - 32px)) !important;
   min-height: 108px !important;
   padding: 18px 20px !important;
   background: linear-gradient(135deg, oklch(0.34 0.20 250), oklch(0.60 0.22 300)) !important;
@@ -268,7 +267,6 @@
 
 @media (max-width: 640px) {
   .moxera-payment-toast {
-    width: calc(100vw - 32px) !important;
     min-height: 112px !important;
     padding: 16px !important;
   }
