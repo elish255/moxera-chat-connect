@@ -634,12 +634,22 @@ export function CustomerSupportChat({
   );
 }
 
+const SOUND_PREF_KEY = "moxera-admin-sound";
+
 export function CustomerSupportInbox({ adminId }: { adminId: string }) {
   const queryClient = useQueryClient();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [soundOn, setSoundOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(SOUND_PREF_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [markingRead, setMarkingRead] = useState(false);
   const audioContext = useRef<AudioContext | null>(null);
+  const soundOnRef = useRef(soundOn);
   const messagesQuery = useQuery({
     queryKey: ["support-admin-messages"],
     enabled: Boolean(supabase && adminId),
@@ -773,9 +783,97 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
   }
 
   useEffect(() => {
+    soundOnRef.current = soundOn;
+    try {
+      window.localStorage.setItem(SOUND_PREF_KEY, soundOn ? "1" : "0");
+    } catch {
+      /* Storage may be unavailable in private mode. */
+    }
+  }, [soundOn]);
+
+  useEffect(() => {
+    if (!soundOn) return;
+    const unlock = () => {
+      const context = ensureAudioContext();
+      void context?.resume().catch(() => undefined);
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [soundOn]);
+
+  function ensureAudioContext() {
+    if (typeof window === "undefined" || !("AudioContext" in window))
+      return null;
+    try {
+      audioContext.current = audioContext.current ?? new AudioContext();
+      return audioContext.current;
+    } catch {
+      return null;
+    }
+  }
+
+  function playIncomingChime() {
+    const context = ensureAudioContext();
+    if (!context) return;
+    try {
+      void context.resume().catch(() => undefined);
+      const start = context.currentTime + 0.01;
+      [880, 660, 990].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        const at = start + index * 0.16;
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, at);
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.2, at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.15);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(at);
+        oscillator.stop(at + 0.16);
+      });
+    } catch {
+      /* Audio may be blocked until the admin interacts with the page. */
+    }
+    try {
+      navigator.vibrate?.([120, 60, 120]);
+    } catch {
+      /* Vibration is optional. */
+    }
+  }
+
+  async function showSystemNotification(title: string, body: string) {
+    if (
+      typeof Notification === "undefined" ||
+      Notification.permission !== "granted" ||
+      !document.hidden
+    )
+      return;
+    try {
+      const registration =
+        "serviceWorker" in navigator
+          ? await navigator.serviceWorker.getRegistration()
+          : undefined;
+      if (registration) {
+        await registration.showNotification(title, { body });
+        return;
+      }
+      new Notification(title, { body });
+    } catch {
+      /* Mobile Chrome only allows notifications through a service worker. */
+    }
+  }
+
+  const alertHandlers = useRef({ playIncomingChime, showSystemNotification });
+  alertHandlers.current = { playIncomingChime, showSystemNotification };
+
+  useEffect(() => {
     if (!supabase || !adminId) return;
     const channel = supabase
-      .channel("support-admin-inbox")
+      .channel(`support-admin-inbox-${adminId}-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "moxera_support_messages" },
@@ -784,45 +882,21 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
           void queryClient.invalidateQueries({
             queryKey: ["support-admin-messages"],
           });
-          if (inserted.sender_role === "user") {
-            toast.info("Ujumbe mpya kutoka kwa mteja");
-            if (audioContext.current && soundOn) {
-              const context = audioContext.current;
-              const oscillator = context.createOscillator();
-              const gain = context.createGain();
-              oscillator.type = "sine";
-              oscillator.frequency.setValueAtTime(880, context.currentTime);
-              oscillator.frequency.setValueAtTime(
-                660,
-                context.currentTime + 0.12,
-              );
-              gain.gain.setValueAtTime(0.08, context.currentTime);
-              gain.gain.exponentialRampToValueAtTime(
-                0.001,
-                context.currentTime + 0.3,
-              );
-              oscillator.connect(gain).connect(context.destination);
-              oscillator.start();
-              oscillator.stop(context.currentTime + 0.3);
-            }
-            if (
-              soundOn &&
-              typeof Notification !== "undefined" &&
-              Notification.permission === "granted" &&
-              document.hidden
-            ) {
-              new Notification(`Ujumbe mpya kutoka @${inserted.username}`, {
-                body: inserted.body || "Ametuma kiambatisho cha sauti/picha.",
-              });
-            }
-          }
+          if (inserted.sender_role !== "user") return;
+          toast.info("Ujumbe mpya kutoka kwa mteja");
+          if (!soundOnRef.current) return;
+          alertHandlers.current.playIncomingChime();
+          void alertHandlers.current.showSystemNotification(
+            `Ujumbe mpya kutoka @${inserted.username ?? "mteja"}`,
+            inserted.body || "Ametuma kiambatisho cha sauti/picha.",
+          );
         },
       )
       .subscribe();
     return () => {
       void supabase?.removeChannel(channel);
     };
-  }, [adminId, queryClient, soundOn]);
+  }, [adminId, queryClient]);
 
   useEffect(() => {
     if (!supabase || !selectedUserId) return;
@@ -840,20 +914,23 @@ export function CustomerSupportInbox({ adminId }: { adminId: string }) {
   }, [activeMessages, queryClient, selectedUserId]);
 
   async function enableNotifications() {
+    const context = ensureAudioContext();
     try {
-      if (typeof window !== "undefined" && "AudioContext" in window) {
-        audioContext.current = audioContext.current ?? new AudioContext();
-        await audioContext.current.resume();
-      }
+      await context?.resume();
+    } catch {
+      /* Resume can fail on some browsers; the next tap retries it. */
+    }
+    setSoundOn(true);
+    playIncomingChime();
+    toast.success("Sauti ya ujumbe mpya imewashwa.");
+    try {
       if (
         typeof Notification !== "undefined" &&
         Notification.permission === "default"
       )
         await Notification.requestPermission();
-      setSoundOn(true);
-      toast.success("Sauti ya ujumbe mpya imewashwa.");
     } catch {
-      toast.error("Imeshindikana kuwasha sauti ya arifa.");
+      /* Notification permission is optional; sound still works. */
     }
   }
 
