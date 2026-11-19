@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, MessageSquareText, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Lock, MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomerSupportChat } from "@/components/customer-support-chat";
 import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
@@ -8,7 +9,6 @@ import { getCurrentMoxeraUser, subscribeAuth } from "@/lib/auth";
 export function CustomerServiceFloating() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [showOnlineRequirement, setShowOnlineRequirement] = useState(false);
   const { data: user } = useQuery({
     queryKey: ["moxera-current-user"],
     queryFn: getCurrentMoxeraUser,
@@ -26,60 +26,42 @@ export function CustomerServiceFloating() {
     return unsubscribe;
   }, [queryClient]);
 
-  if (user) return <CustomerSupportChat user={user} floating />;
+  if (user?.status === "active") {
+    return <CustomerSupportChat user={user} floating />;
+  }
+
+  const ctaTo = user ? "/payment" : "/register";
+  const ctaLabel = user ? "Active Account Sasa" : "Jisajili Sasa";
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">
       {open && (
-        <div className="mb-1 flex w-[min(320px,calc(100vw-2rem))] flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <MessageCircle className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-extrabold text-foreground">
-                Customer Services
-              </p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Chagua namna ya kuwasiliana nasi.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              className="w-full justify-start"
-              variant="outline"
-              onClick={() => setShowOnlineRequirement((value) => !value)}
-            >
-              <MessageCircle data-icon="inline-start" />
-              Chati nasi online
-            </Button>
-            <Button asChild className="w-full justify-start" variant="outline">
-              <a
-                href="sms:0743871339?body=Nielekeze%20kuhusu%20Moxera"
-                onClick={() => setOpen(false)}
-              >
-                <MessageSquareText data-icon="inline-start" />
-                Normal SMS
-              </a>
-            </Button>
-          </div>
-          {showOnlineRequirement && (
-            <p className="text-sm leading-6 text-muted-foreground">
-              Jisajili kwanza na u-activate akaunti yako ili kufungua chat ya
-              online.
-            </p>
-          )}
+        <div
+          role="dialog"
+          aria-labelledby="support-locked-title"
+          className="mb-1 flex w-[min(320px,calc(100vw-2rem))] flex-col items-center gap-4 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center shadow-2xl animate-in fade-in slide-in-from-bottom-2"
+        >
+          <span className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Lock className="size-6" />
+          </span>
+          <p
+            id="support-locked-title"
+            className="text-pretty text-base font-extrabold uppercase leading-snug text-foreground"
+          >
+            Jisajili kwanza kisha{" "}
+            <span className="text-primary">active account</span> kupata msaada
+          </p>
+          <Button asChild className="w-full font-bold uppercase">
+            <Link to={ctaTo} onClick={() => setOpen(false)}>
+              {ctaLabel}
+            </Link>
+          </Button>
         </div>
       )}
 
       <button
         type="button"
-        onClick={() => {
-          setOpen((value) => !value);
-          setShowOnlineRequirement(false);
-        }}
+        onClick={() => setOpen((value) => !value)}
         aria-label={open ? "Funga Customer Service" : "Fungua Customer Service"}
         aria-expanded={open}
         className="customer-service-blink group relative flex h-[74px] w-[74px] items-center justify-center overflow-hidden rounded-full border-4 border-background bg-card shadow-2xl ring-2 ring-primary/40 transition-transform hover:scale-105 sm:h-20 sm:w-20"
