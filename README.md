@@ -62,3 +62,32 @@ Configure these server-side variables in Vercel (Production/Preview as appropria
 SplashPay calls are made only from the server. The client never receives the API secret. Activation fee is fixed at TZS 15,000. Payment references sent to SplashPay begin with `INV-`. The app polls `POST /payments/check-status` using the reference (no webhook is required); activation or membership changes happen only after SplashPay returns `data.status = success`.
 
 Remove the old `PAYMENT_API_SECRET` environment variable after verifying the SplashPay integration is working. Do not commit API credentials to source control.
+
+## Password recovery
+
+The login page links to **Umesahau Password?** (`/forgot-password`). A user
+enters their registration email and Supabase sends a recovery link; passwords
+are never sent in email. The link opens `/reset-password`, where a verified
+recovery session can set and confirm a new password, then return to login.
+Existing account activation/payment rules are unchanged.
+
+Before testing or releasing, configure the Supabase project:
+- In **URL Configuration**, add the exact production URL ending in
+  `/reset-password` to **Redirect URLs**. Add each trusted preview origin with
+  the same path if testing recovery on a preview. The app uses the origin where
+  the request was made; do not allow unrelated preview domains.
+- Set **Site URL** to the production origin. Keep the reset-password email
+  template's Supabase verification link (`{{ .ConfirmationURL }}`), so the email
+  verifies the recovery token before returning to the app.
+- Ensure Supabase email delivery/SMTP is configured for the intended recipients.
+  Email delivery, redirect allowlists, and provider password policies are managed
+  in Supabase, not by this repository.
+
+See [Supabase password recovery](https://supabase.com/docs/guides/auth/passwords)
+and [redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+For a smoke test, request a reset for a test account you control, open the email
+link, check mismatched passwords are rejected, save a new password, and log in
+with it. Confirm the old password is rejected. Missing/expired links must offer
+a new request instead of a password form; an ordinary signed-in session alone
+must not unlock that form. Reopening/reloading the reset screen after its
+recovery session is consumed may require requesting a fresh link.
