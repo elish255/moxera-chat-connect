@@ -80,7 +80,7 @@ account is created and activation/payment restrictions are unchanged.
 2. Configure existing server-only `SUPABASE_SERVICE_ROLE_KEY`,
    `SUPABASE_URL` (or `VITE_SUPABASE_URL`), `SPRINGTECH_API_KEY`,
    `SPRINGTECH_API_SECRET`, `SPRINGTECH_SENDER_ID`, and
-   `SPRINGTECH_DELIVERY_REPORT_URL`. Never prefix private keys with `VITE_` or commit them.
+   optionally `SPRINGTECH_DELIVERY_REPORT_URL` (see the default below). Never prefix private keys with `VITE_` or commit them.
    Keep sufficient SpringTech balance and an approved sender. Use isolated preview
    database/provider credentials to test without affecting production users.
 3. Test with an existing account and a phone/inbox you control. SMS delivery and
@@ -138,11 +138,28 @@ Set these **server-only** variables for the deployment environment before releas
 - `SPRINGTECH_API_KEY` and `SPRINGTECH_API_SECRET`: enter privately as secrets.
 - `SPRINGTECH_SENDER_ID`: the exact sender approved on the SpringTech account;
   no sender name is assumed or copied from the old provider.
-- `SPRINGTECH_DELIVERY_REPORT_URL`: an existing HTTPS delivery-report receiver
-  you control or your provider has approved. The send schema includes this field.
-  This change does not implement a callback receiver or verify delivery reports;
-  do not point it at a page that has no receiver. Ask SpringTech about callback
-  setup/verification if you do not have one. Missing settings block sending.
+- `SPRINGTECH_DELIVERY_REPORT_URL` is now optional: when unset or empty, the
+  server sends `https://www.moxeras.site/api/springtech/delivery`, the callback
+  implemented by this app. Deploy this change before relying on the default.
+  For isolated previews or a custom receiver, set an HTTPS override you control.
+
+### Callback behavior and trust boundary
+
+`POST /api/springtech/delivery` acknowledges and discards report bodies up to
+32 KiB, returning HTTP 200 with `received: true`. Larger bodies return 413;
+read failures return 400. Bodies are streamed with a size limit, never logged,
+stored, echoed, or parsed. GET/PUT/PATCH/DELETE/HEAD return 405; the framework
+handles OPTIONS. GET is not a delivery-status lookup.
+
+The supplied SpringTech docs do not specify callback authentication, signature
+verification, method, or payload format; this receiver supports POST without
+assuming a schema. Confirm POST and acknowledgement compatibility with the
+provider during the controlled-phone smoke test. The public endpoint accepts
+untrusted input and intentionally cannot update delivery status, OTP verification,
+passwords, users, balances, or payments. Duplicate/spoofed callbacks have no side
+effects. This is an acknowledgement receiver, not a delivery-report dashboard;
+use SpringTech's authenticated report lookup for authoritative status checks.
+Do not put credentials or OTPs in callback URLs/query strings.
 
 Do not prefix these variables with `VITE_`, put values in Git, or share values in
 chat. Existing Supabase variables and `supabase/moxera_sms_recovery.sql` are still

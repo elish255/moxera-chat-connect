@@ -4,8 +4,10 @@ export function springTechConfig() {
   const apiKey = process.env["SPRINGTECH_API_KEY"];
   const apiSecret = process.env["SPRINGTECH_API_SECRET"];
   const senderId = process.env["SPRINGTECH_SENDER_ID"];
-  const deliveryReportUrl = process.env["SPRINGTECH_DELIVERY_REPORT_URL"];
-  if (!apiKey || !apiSecret || !senderId || !deliveryReportUrl) {
+  const deliveryReportUrl =
+    process.env["SPRINGTECH_DELIVERY_REPORT_URL"] ||
+    "https://www.moxeras.site/api/springtech/delivery";
+  if (!apiKey || !apiSecret || !senderId) {
     throw new Error(
       "Mipangilio ya SpringTech SMS haijakamilika. Wasiliana na msimamizi.",
     );
