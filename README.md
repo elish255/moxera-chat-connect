@@ -179,3 +179,35 @@ password change + login, and failed submission invalidation. As an admin, test
 personalized SMS, partial failures, and rejection for a non-admin session.
 Confirm acceptance in SpringTech and actual receipt on the handset separately.
 The repository does not document a preview admin test account/auth bypass.
+
+### Safe OTP diagnostics
+
+Runtime output now uses `[sms-recovery]` and `[springtech]` fixed event names.
+Correlate entries using the hosting platform's request ID and timestamps, not
+phone numbers or recovery identifiers. These entries are for authorized
+operators only; do not publish logs or add a public endpoint to expose them.
+
+| Event | Meaning / next check |
+| --- | --- |
+| `request_started` | Recovery handler was entered. |
+| `configuration_failed` | Supabase/SMS configuration validation failed; check variable names/environments, never log values. |
+| `issuance_failed` | Recovery database RPC returned an error; check migration and database access. |
+| `issuance_not_accepted` | RPC did not accept issuance, normally rate limiting. |
+| `recipient_not_unique` | No single matching signup account; no SMS send is attempted. This intentionally does not distinguish zero from duplicate accounts. |
+| `recipient_matched` | A single account matched and a send will be attempted. |
+| `send_started` | Provider fetch is being attempted. |
+| `transport_failed` | No HTTP response was obtained (network/timeout); acceptance remains unknown, do not automatically retry. |
+| `invalid_response` | Provider response was not a JSON object. |
+| `submission_rejected` | HTTP or provider acceptance checks failed; inspect the HTTP status (401/403 suggests authentication/authorization), then verify credentials, approved sender, and balance privately in SpringTech. HTTP 200 alone does not mean accepted. |
+| `submission_accepted` | SpringTech accepted the submission, not proof of handset delivery. |
+| `submission_failed` | Recovery send failed; see provider events in the same request. |
+| `acceptance_save_failed` | Provider accepted but the recovery acceptance flag could not be saved. |
+| `invalidation_failed` | Recovery invalidation returned a database error; check DB health. Existing verification still requires its acceptance flag. |
+| `challenge_ready` | Provider accepted and the recovery acceptance flag was saved. |
+
+Only fixed event labels and the Fetch API's HTTP status are added. No phone,
+message/OTP, password, API credentials, callback URL, provider response/error,
+user/challenge/provider IDs, IP or hash is logged by these diagnostics. Neutral
+browser responses, limits, grants, and authentication behavior are unchanged.
+After deploying, make one controlled OTP request and inspect that request's
+events. Historical requests cannot be diagnosed retroactively with these logs.

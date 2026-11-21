@@ -46,7 +46,11 @@ export async function sendSpringTechSms(phone: string, message: string) {
     throw new Error("Namba au ujumbe wa SMS si sahihi.");
   }
   const config = springTechConfig();
+  let receivedResponse = false;
+  let httpStatus: number | undefined;
+  let validResponse = false;
   try {
+    console.info("[springtech] send_started");
     const response = await fetch(SEND_URL, {
       method: "POST",
       headers: {
@@ -63,9 +67,12 @@ export async function sendSpringTechSms(phone: string, message: string) {
       }),
       signal: AbortSignal.timeout(12000),
     });
+    receivedResponse = true;
+    httpStatus = response.status;
     const result = (await response
       .json()
       .catch(() => null)) as Submission | null;
+    validResponse = result !== null && typeof result === "object";
     if (
       !response.ok ||
       result?.success !== true ||
@@ -75,8 +82,18 @@ export async function sendSpringTechSms(phone: string, message: string) {
     ) {
       throw new Error("submission_rejected");
     }
+    console.info("[springtech] submission_accepted", { httpStatus });
     return { queued: true as const };
   } catch {
+    console.warn(
+      !receivedResponse
+        ? "[springtech] transport_failed"
+        : !validResponse
+          ? "[springtech] invalid_response"
+          : "[springtech] submission_rejected",
+      // Only the Fetch API HTTP status, never provider codes/messages/body/errors.
+      { httpStatus },
+    );
     // Provider bodies may echo the message (including OTP) or credentials.
     // Do not expose them in errors, logs, or server-function responses.
     throw new Error(
