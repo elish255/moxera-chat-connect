@@ -26,8 +26,17 @@ const unavailable = () =>
   );
 
 export async function requestCode(phone: string) {
-  const { db, hash } = config();
-  springTechConfig();
+  console.info("[sms-recovery] request_started");
+  const { db, hash } = (() => {
+    try {
+      const configured = config();
+      springTechConfig();
+      return configured;
+    } catch (error) {
+      console.warn("[sms-recovery] configuration_failed");
+      throw error;
+    }
+  })();
   const id = randomUUID();
   const code = String(randomInt(0, 1000000)).padStart(6, "0");
   // Vercel overwrites this header. Never trust arbitrary x-forwarded-for.
@@ -42,33 +51,51 @@ export async function requestCode(phone: string) {
     p_ip_hash: hash(`ip:${ip}`),
     p_code_hash: hash(`code:${id}:${code}`),
   });
-  if (error) throw unavailable();
+  if (error) {
+    console.warn("[sms-recovery] issuance_failed");
+    throw unavailable();
+  }
   const result = data?.[0];
-  if (!result?.accepted)
+  if (!result?.accepted) {
+    console.warn("[sms-recovery] issuance_not_accepted");
     throw new Error(
       "Subiri kabla ya kuomba OTP nyingine. Umefikia kikomo cha maombi kwa sasa.",
     );
+  }
   if (result.recipient) {
+    console.info("[sms-recovery] recipient_matched");
+    let providerAccepted = false;
     try {
       await sendSpringTechSms(
         phone,
         `Moxera Agencies: OTP yako ya kubadilisha password ni ${code}. Inaisha baada ya dakika 5. Usimpe mtu mwingine code hii. Kama hukuomba, puuza SMS hii.`,
       );
+      providerAccepted = true;
       const { error: deliveryError } = await db
         .from("moxera_sms_recovery")
         .update({ delivered: true })
         .eq("id", id);
       if (deliveryError) throw unavailable();
+      console.info("[sms-recovery] challenge_ready");
     } catch {
+      console.warn(
+        providerAccepted
+          ? "[sms-recovery] acceptance_save_failed"
+          : "[sms-recovery] submission_failed",
+      );
       // delivered=true means accepted by the provider, not confirmed handset delivery.
       // Verification requires it, so provider submission failures fail closed.
-      await db
+      const { error: invalidationError } = await db
         .from("moxera_sms_recovery")
         .update({ consumed: true })
         .eq("id", id);
+      if (invalidationError) console.warn("[sms-recovery] invalidation_failed");
       // Same response for unknown, duplicate and undeliverable phone numbers.
       // Do not disclose provider payloads, OTPs, phone numbers or credentials.
     }
+  } else {
+    // No raw phone, user id, challenge id, hashes or account count in logs.
+    console.info("[sms-recovery] recipient_not_unique");
   }
   return { challengeId: id };
 }
