@@ -63,31 +63,51 @@ SplashPay calls are made only from the server. The client never receives the API
 
 Remove the old `PAYMENT_API_SECRET` environment variable after verifying the SplashPay integration is working. Do not commit API credentials to source control.
 
-## Password recovery
+## Password recovery via email OTP
 
 The login page links to **Umesahau Password?** (`/forgot-password`). A user
-enters their registration email and Supabase sends a recovery link; passwords
-are never sent in email. The link opens `/reset-password`, where a verified
-recovery session can set and confirm a new password, then return to login.
-Existing account activation/payment rules are unchanged.
+enters their registration email, receives an OTP, enters it on the same website,
+and then chooses and confirms a new password on `/reset-password`. The app calls
+`resetPasswordForEmail` and verifies with `verifyOtp({ email, token, type:
+"recovery" })`. It does not use passwordless sign-in or create accounts.
+Existing account activation/payment rules are unchanged. No OTPs, passwords, or
+recovery tokens are stored in URLs or application logs.
 
-Before testing or releasing, configure the Supabase project:
-- In **URL Configuration**, add the exact production URL ending in
-  `/reset-password` to **Redirect URLs**. Add each trusted preview origin with
-  the same path if testing recovery on a preview. The app uses the origin where
-  the request was made; do not allow unrelated preview domains.
-- Set **Site URL** to the production origin. Keep the reset-password email
-  template's Supabase verification link (`{{ .ConfirmationURL }}`), so the email
-  verifies the recovery token before returning to the app.
-- Ensure Supabase email delivery/SMTP is configured for the intended recipients.
-  Email delivery, redirect allowlists, and provider password policies are managed
-  in Supabase, not by this repository.
+### Required Supabase change BEFORE release
 
-See [Supabase password recovery](https://supabase.com/docs/guides/auth/passwords)
+Publishing this repository does **not** update hosted Supabase email templates.
+In Supabase **Email Templates**, select **Reset password** and replace its body
+with `supabase/templates/recovery.html`. The important variable is
+`{{ .Token }}` — it shows the actual one-time code. Do not replace it with
+`{{ .TokenHash }}`, and do not change the Magic link or signup template.
+Suggested subject: `Code yako ya kuweka password mpya — Moxera Agencies`.
+Save the template. Without this change, users still receive the old link-only
+email and cannot complete the new OTP entry flow. This is an admin-only setup;
+users never need to open Supabase.
+
+Use the project's configured OTP length and expiration; the form accepts 6–10
+numeric digits (including 6- and 8-digit configurations). Supabase enforces code
+expiry, one-time use, rate limits and password policy. The UI adds a 60-second
+resend cooldown, but that is not a server security control. Configure appropriate
+Auth rate limits and email/SMTP delivery for production.
+
+The new code-entry flow does not follow email redirects, so a localhost Site URL
+does not affect OTP verification. Still correct **Site URL** and **Redirect
+URLs** in Supabase **URL Configuration** for other email flows and existing links:
+set the production origin and allow the exact trusted origin + `/reset-password`.
+Legacy recovery links remain supported when these redirects are configured.
+
+See [Supabase email templates](https://supabase.com/docs/guides/auth/auth-email-templates)
 and [redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
-For a smoke test, request a reset for a test account you control, open the email
-link, check mismatched passwords are rejected, save a new password, and log in
-with it. Confirm the old password is rejected. Missing/expired links must offer
-a new request instead of a password form; an ordinary signed-in session alone
-must not unlock that form. Reopening/reloading the reset screen after its
-recovery session is consumed may require requesting a fresh link.
+
+### Smoke test with an inbox you control
+
+1. Request an OTP for an existing test account; confirm the email contains a
+   numeric code (not only a link) and keeps the browser on the website.
+2. Enter an incorrect/expired code; it must not show the new password form.
+3. Verify the correct code; choose matching passwords and save. Log in with
+   the new password and confirm the old password no longer works.
+4. Check resending, changing email, and rejection of a consumed code. Never
+   paste a real recovery code or token into an issue or pull request.
+5. A missing/ordinary signed-in session must not unlock the reset form. A full
+   page reload after verification intentionally requires a fresh recovery OTP.
