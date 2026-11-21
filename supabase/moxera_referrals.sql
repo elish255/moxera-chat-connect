@@ -127,7 +127,7 @@ begin
     coalesce(nullif(new.raw_user_meta_data ->> 'phone', ''), ''),
     lower(new.email),
     coalesce(nullif(new.raw_user_meta_data ->> 'country', ''), 'Tanzania'),
-    'active',
+    'pending',
     'unpaid',
     v_referrer_id
   )
@@ -136,7 +136,6 @@ begin
     phone = excluded.phone,
     email = excluded.email,
     country = excluded.country,
-    status = case when public.moxera_users.status = 'banned' then 'banned' else 'active' end,
     updated_at = now();
 
   return new;
