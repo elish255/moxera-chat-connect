@@ -78,9 +78,10 @@ account is created and activation/payment restrictions are unchanged.
    adds private, service-role-only challenge storage and RPCs. No browser access
    to recovery tables or admin credentials is permitted.
 2. Configure existing server-only `SUPABASE_SERVICE_ROLE_KEY`,
-   `SUPABASE_URL` (or `VITE_SUPABASE_URL`), `DARSMS_API_KEY`, and optionally
-   `DARSMS_SENDER_ID`. Never prefix private keys with `VITE_` or commit them.
-   Keep sufficient DARSMS balance and an approved sender. Use isolated preview
+   `SUPABASE_URL` (or `VITE_SUPABASE_URL`), `SPRINGTECH_API_KEY`,
+   `SPRINGTECH_API_SECRET`, `SPRINGTECH_SENDER_ID`, and
+   `SPRINGTECH_DELIVERY_REPORT_URL`. Never prefix private keys with `VITE_` or commit them.
+   Keep sufficient SpringTech balance and an approved sender. Use isolated preview
    database/provider credentials to test without affecting production users.
 3. Test with an existing account and a phone/inbox you control. SMS delivery and
    live database setup are not implied by a successful build. No email template
@@ -124,3 +125,40 @@ account existence or provider data. Verify delivery/balance with the SMS provide
 - Change the profile phone between issuance and completion: completion must fail.
 - Simulate provider failures and auth update failures; no password change is
   allowed without a successful OTP and an unconsumed grant.
+
+
+## SpringTech: password OTP and admin SMS
+
+Password recovery, personalized admin messages, and admin withdrawal-paid SMS
+now use [SpringTech's documented send API](https://sms.springtech.co.tz/api-documentation).
+The registration welcome SMS deliberately remains on DARSMS; keep its existing
+`DARSMS_API_KEY`/`DARSMS_SENDER_ID` configuration until migrated separately.
+
+Set these **server-only** variables for the deployment environment before release:
+- `SPRINGTECH_API_KEY` and `SPRINGTECH_API_SECRET`: enter privately as secrets.
+- `SPRINGTECH_SENDER_ID`: the exact sender approved on the SpringTech account;
+  no sender name is assumed or copied from the old provider.
+- `SPRINGTECH_DELIVERY_REPORT_URL`: an existing HTTPS delivery-report receiver
+  you control or your provider has approved. The send schema includes this field.
+  This change does not implement a callback receiver or verify delivery reports;
+  do not point it at a page that has no receiver. Ask SpringTech about callback
+  setup/verification if you do not have one. Missing settings block sending.
+
+Do not prefix these variables with `VITE_`, put values in Git, or share values in
+chat. Existing Supabase variables and `supabase/moxera_sms_recovery.sql` are still
+required. No new database migration is needed for the provider change.
+
+Provider submission requires HTTP success, `success=true`, `code=200`, one valid
+contact, and zero invalid contacts. Submission is **not handset delivery**. No
+provider response body, OTP, API credential, or message text is logged/returned.
+There are no automatic retries (an ambiguous response could already have sent).
+The recovery challenge is invalidated on submission failure, with the same
+neutral result as an unknown phone. OTP expiry, hashing, attempt/rate limits,
+atomic one-time grants, and admin session/membership checks remain unchanged.
+
+Before production: deploy with isolated preview Supabase/provider credentials,
+then use a phone/account you control to test OTP arrival, wrong/expired codes,
+password change + login, and failed submission invalidation. As an admin, test
+personalized SMS, partial failures, and rejection for a non-admin session.
+Confirm acceptance in SpringTech and actual receipt on the handset separately.
+The repository does not document a preview admin test account/auth bypass.

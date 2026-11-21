@@ -23,12 +23,9 @@ export const sendMoxeraAdminSms = createServerFn({ method: "POST" })
     return { accessToken: input.accessToken, recipients, message: input.message.trim() };
   })
   .handler(async ({ data }) => {
-    const url = process.env.VITE_SUPABASE_URL;
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-    const apiKey = process.env.DARSMS_API_KEY;
-    const senderId = process.env.DARSMS_SENDER_ID || "AJIRA PLUS";
+    const url = process.env["VITE_SUPABASE_URL"];
+    const anonKey = process.env["VITE_SUPABASE_ANON_KEY"];
     if (!url || !anonKey) throw new Error("Supabase server configuration haipo.");
-    if (!apiKey) throw new Error("DARSMS_API_KEY haijawekwa kwenye Vercel.");
 
     // Verify the caller's Supabase session and admin membership on the server.
     const supabase = createClient(url, anonKey, {
@@ -42,32 +39,26 @@ export const sendMoxeraAdminSms = createServerFn({ method: "POST" })
     const { data: admin, error: adminError } = await supabase
       .from("moxera_admins").select("user_id").eq("user_id", authData.user.id).maybeSingle();
     if (adminError) {
-      console.error("DARSMS admin authorization lookup failed", { code: adminError.code, message: adminError.message });
+      console.error("SMS admin authorization lookup failed", { code: adminError.code, message: adminError.message });
       throw new Error("Imeshindikana kuthibitisha ruhusa za admin kwenye database. Hakikisha table moxera_admins na ruhusa zake za SELECT zipo.");
     }
     if (!admin) throw new Error("Huruhusiwi kutuma SMS kupitia admin panel. Akaunti yako haipo kwenye moxera_admins.");
 
+    const { sendSpringTechSms, springTechConfig } = await import("./springtech.server");
+    springTechConfig();
     let sent = 0;
     const failed: { username: string; reason: string }[] = [];
     // Personalize each SMS so every user receives their own username.
     for (const recipient of data.recipients) {
       const message = data.message.replace(/\[\s*username\s*\]/gi, recipient.username);
       try {
-        const response = await fetch("https://dev.darsms.co.tz/api/v1/integrations/sms/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-          body: JSON.stringify({ senderId, to: [recipient.phone], message }),
-          signal: AbortSignal.timeout(12000),
-        });
-        const result = await response.json().catch(() => null) as { success?: boolean; message?: string } | null;
-        if (!response.ok || result?.success !== true) {
-          failed.push({ username: recipient.username, reason: result?.message || `DARSMS HTTP ${response.status}` });
-        } else sent++;
+        await sendSpringTechSms(recipient.phone, message);
+        sent++;
       } catch (e) {
         failed.push({ username: recipient.username, reason: e instanceof Error ? e.message : "Network error" });
       }
     }
-    console.info("DARSMS admin bulk send result", { adminId: authData.user.id, attempted: data.recipients.length, sent, failed: failed.length });
+    console.info("SpringTech admin bulk submission result", { adminId: authData.user.id, attempted: data.recipients.length, sent, failed: failed.length });
     return { attempted: data.recipients.length, sent, failed };
   });
 
@@ -86,12 +77,9 @@ export const sendMoxeraWithdrawalPaidSms = createServerFn({ method: "POST" })
     return { accessToken: input.accessToken, phone, username: input.username.trim().slice(0, 80), amount: input.amount };
   })
   .handler(async ({ data }) => {
-    const url = process.env.VITE_SUPABASE_URL;
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-    const apiKey = process.env.DARSMS_API_KEY;
-    const senderId = process.env.DARSMS_SENDER_ID || "AJIRA PLUS";
+    const url = process.env["VITE_SUPABASE_URL"];
+    const anonKey = process.env["VITE_SUPABASE_ANON_KEY"];
     if (!url || !anonKey) throw new Error("Supabase server configuration haipo.");
-    if (!apiKey) throw new Error("DARSMS_API_KEY haijawekwa kwenye Vercel.");
     const supabase = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${data.accessToken}` } },
@@ -101,16 +89,7 @@ export const sendMoxeraWithdrawalPaidSms = createServerFn({ method: "POST" })
     const { data: admin, error: adminError } = await supabase.from("moxera_admins").select("user_id").eq("user_id", authData.user.id).maybeSingle();
     if (adminError || !admin) throw new Error("Huruhusiwi kutuma SMS hii. Hakikisha akaunti yako ipo kwenye moxera_admins.");
     const message = `HONGERA ${data.username} withdrawal Yako ya TZS ${data.amount.toLocaleString("en-US")} imetumwa Kikamilifu. Asante kwa kuchagua Moxera Agencies`;
-    const response = await fetch("https://dev.darsms.co.tz/api/v1/integrations/sms/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body: JSON.stringify({ senderId, to: [data.phone], message }),
-      signal: AbortSignal.timeout(12000),
-    });
-    const result = await response.json().catch(() => null) as { success?: boolean; message?: string } | null;
-    if (!response.ok || result?.success !== true) {
-      console.error("DARSMS withdrawal paid SMS failed", { status: response.status, message: result?.message });
-      throw new Error(result?.message || `DARSMS HTTP ${response.status}`);
-    }
+    const { sendSpringTechSms } = await import("./springtech.server");
+    await sendSpringTechSms(data.phone, message);
     return { queued: true };
   });

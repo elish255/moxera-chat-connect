@@ -1,3 +1,4 @@
+import { sendSpringTechSms, springTechConfig } from "./springtech.server";
 import { createHmac, randomInt, randomUUID, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getRequestHeader } from "@tanstack/react-start/server";
@@ -5,8 +6,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 function config() {
   const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  const smsKey = process.env["DARSMS_API_KEY"];
-  if (!url || !key || !smsKey)
+  if (!url || !key)
     throw new Error(
       "Huduma ya SMS OTP haijakamilishwa. Wasiliana na msimamizi.",
     );
@@ -14,7 +14,6 @@ function config() {
     db: createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     }),
-    smsKey,
     hash: (value: string) =>
       createHmac("sha256", key)
         .update(`moxera-sms-recovery:${value}`)
@@ -27,7 +26,8 @@ const unavailable = () =>
   );
 
 export async function requestCode(phone: string) {
-  const { db, smsKey, hash } = config();
+  const { db, hash } = config();
+  springTechConfig();
   const id = randomUUID();
   const code = String(randomInt(0, 1000000)).padStart(6, "0");
   // Vercel overwrites this header. Never trust arbitrary x-forwarded-for.
@@ -50,30 +50,18 @@ export async function requestCode(phone: string) {
     );
   if (result.recipient) {
     try {
-      const response = await fetch(
-        "https://dev.darsms.co.tz/api/v1/integrations/sms/send",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": smsKey },
-          body: JSON.stringify({
-            senderId: process.env["DARSMS_SENDER_ID"] || "AJIRA PLUS",
-            to: [phone],
-            message: `Moxera Agencies: OTP yako ya kubadilisha password ni ${code}. Inaisha baada ya dakika 5. Usimpe mtu mwingine code hii. Kama hukuomba, puuza SMS hii.`,
-          }),
-          signal: AbortSignal.timeout(12000),
-        },
+      await sendSpringTechSms(
+        phone,
+        `Moxera Agencies: OTP yako ya kubadilisha password ni ${code}. Inaisha baada ya dakika 5. Usimpe mtu mwingine code hii. Kama hukuomba, puuza SMS hii.`,
       );
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean;
-      } | null;
-      if (!response.ok || payload?.success !== true) throw unavailable();
       const { error: deliveryError } = await db
         .from("moxera_sms_recovery")
         .update({ delivered: true })
         .eq("id", id);
       if (deliveryError) throw unavailable();
     } catch {
-      // Verification also requires delivered=true, so provider failures fail closed.
+      // delivered=true means accepted by the provider, not confirmed handset delivery.
+      // Verification requires it, so provider submission failures fail closed.
       await db
         .from("moxera_sms_recovery")
         .update({ consumed: true })
