@@ -78,7 +78,7 @@ function ResetPassword() {
       setStatus("saved");
     } catch {
       setError(
-        "Password haijabadilishwa. Jaribu tena au omba kiungo kipya ikiwa muda wake umeisha. Hakikisha password inakidhi masharti ya account yako.",
+        "Password haijabadilishwa. Jaribu tena au omba OTP mpya ikiwa muda wake umeisha. Hakikisha password inakidhi masharti ya account yako.",
       );
     } finally {
       setBusy(false);
@@ -93,20 +93,20 @@ function ResetPassword() {
         </h1>
         {status === "loading" && (
           <p role="status" className="mt-4 text-sm">
-            Inathibitisha kiungo…
+            Inathibitisha ruhusa ya kuweka password…
           </p>
         )}
         {status === "invalid" && (
           <div className="mt-4 space-y-4">
             <p role="alert" className="text-sm text-muted-foreground">
-              Kiungo si sahihi au muda wake umeisha. Omba kiungo kipya kupitia
-              email uliyojisajili nayo.
+              OTP haijathibitishwa au muda wa session umeisha. Omba OTP mpya
+              kupitia email uliyojisajili nayo.
             </p>
             <Link
               to="/forgot-password"
               className="inline-block font-bold text-primary hover:underline"
             >
-              Omba kiungo kipya
+              Omba OTP mpya
             </Link>
           </div>
         )}
@@ -152,7 +152,10 @@ function ResetPassword() {
             </div>
             {error && (
               <p role="alert" className="text-sm text-destructive">
-                {error}
+                {error}{" "}
+                <Link to="/forgot-password" className="font-bold underline">
+                  Omba OTP mpya
+                </Link>
               </p>
             )}
             <Button
