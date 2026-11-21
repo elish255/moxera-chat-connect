@@ -63,51 +63,64 @@ SplashPay calls are made only from the server. The client never receives the API
 
 Remove the old `PAYMENT_API_SECRET` environment variable after verifying the SplashPay integration is working. Do not commit API credentials to source control.
 
-## Password recovery via email OTP
+## Password recovery via SMS OTP
 
-The login page links to **Umesahau Password?** (`/forgot-password`). A user
-enters their registration email, receives an OTP, enters it on the same website,
-and then chooses and confirms a new password on `/reset-password`. The app calls
-`resetPasswordForEmail` and verifies with `verifyOtp({ email, token, type:
-"recovery" })`. It does not use passwordless sign-in or create accounts.
-Existing account activation/payment rules are unchanged. No OTPs, passwords, or
-recovery tokens are stored in URLs or application logs.
+The requested policy is to use the phone recorded at signup, **without prior
+email/admin verification**. This is a deliberate security tradeoff: a mistyped,
+shared, transferred, or recycled phone number may allow its holder to take over
+an account. Users prove possession by SMS OTP before changing a password. No
+account is created and activation/payment restrictions are unchanged.
 
-### Required Supabase change BEFORE release
+### Required setup BEFORE merge/release
 
-Publishing this repository does **not** update hosted Supabase email templates.
-In Supabase **Email Templates**, select **Reset password** and replace its body
-with `supabase/templates/recovery.html`. The important variable is
-`{{ .Token }}` — it shows the actual one-time code. Do not replace it with
-`{{ .TokenHash }}`, and do not change the Magic link or signup template.
-Suggested subject: `Code yako ya kuweka password mpya — Moxera Agencies`.
-Save the template. Without this change, users still receive the old link-only
-email and cannot complete the new OTP entry flow. This is an admin-only setup;
-users never need to open Supabase.
+1. Run `supabase/moxera_sms_recovery.sql` in the connected Supabase SQL Editor.
+   Git/Vercel deploys do not apply this migration automatically. The migration
+   adds private, service-role-only challenge storage and RPCs. No browser access
+   to recovery tables or admin credentials is permitted.
+2. Configure existing server-only `SUPABASE_SERVICE_ROLE_KEY`,
+   `SUPABASE_URL` (or `VITE_SUPABASE_URL`), `DARSMS_API_KEY`, and optionally
+   `DARSMS_SENDER_ID`. Never prefix private keys with `VITE_` or commit them.
+   Keep sufficient DARSMS balance and an approved sender. Use isolated preview
+   database/provider credentials to test without affecting production users.
+3. Test with an existing account and a phone/inbox you control. SMS delivery and
+   live database setup are not implied by a successful build. No email template
+   change is needed for SMS recovery. The old email recovery callback remains
+   available only for previously issued links with configured redirects.
 
-Use the project's configured OTP length and expiration; the form accepts 6–10
-numeric digits (including 6- and 8-digit configurations). Supabase enforces code
-expiry, one-time use, rate limits and password policy. The UI adds a 60-second
-resend cooldown, but that is not a server security control. Configure appropriate
-Auth rate limits and email/SMTP delivery for production.
+`/forgot-password` collects the signup phone, sends a 6-digit code, verifies it,
+and shows the new-password form on the same page. Tanzanian formats `07…`,
+`+2557…`, `2557…` normalize identically (also supports 06… mobile numbers).
+Unknown and duplicate numbers receive a neutral message and no SMS: shared
+phones must be resolved by admin rather than choosing an arbitrary account.
 
-The new code-entry flow does not follow email redirects, so a localhost Site URL
-does not affect OTP verification. Still correct **Site URL** and **Redirect
-URLs** in Supabase **URL Configuration** for other email flows and existing links:
-set the production origin and allow the exact trusted origin + `/reset-password`.
-Legacy recovery links remain supported when these redirects are configured.
+Codes are cryptographically random, HMAC-hashed using the server service-role
+key with recovery-specific domains, valid for 5 minutes, with at most 5 guesses.
+Verification creates a random 256-bit one-time grant, also hashed, valid for
+5 minutes. Grants are consumed atomically **before** the Auth password update;
+a failed/ambiguous update requires requesting a new OTP (or trying login if the
+network response was lost). Codes/grants/passwords are never put in URLs, logs,
+or browser storage. They remain only in component memory; reload starts over.
 
-See [Supabase email templates](https://supabase.com/docs/guides/auth/auth-email-templates)
-and [redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+Database issuance limits: 1 request/minute and 5/hour/phone, 10/hour/IP, and
+200/hour globally; limits are shared across server instances. New requests
+invalidate old codes. Vercel's trusted `x-vercel-forwarded-for` header supplies
+the IP; outside Vercel a conservative shared bucket is used. Older records are
+pruned on issuance after 24 hours. These limits are not a replacement for WAF,
+CAPTCHA and SMS budget monitoring under sustained distributed abuse.
 
-### Smoke test with an inbox you control
+Provider failures fail closed (the challenge is invalidated), and intentionally
+return the same neutral message as an unknown number rather than revealing
+account existence or provider data. Verify delivery/balance with the SMS provider.
 
-1. Request an OTP for an existing test account; confirm the email contains a
-   numeric code (not only a link) and keeps the browser on the website.
-2. Enter an incorrect/expired code; it must not show the new password form.
-3. Verify the correct code; choose matching passwords and save. Log in with
-   the new password and confirm the old password no longer works.
-4. Check resending, changing email, and rejection of a consumed code. Never
-   paste a real recovery code or token into an issue or pull request.
-5. A missing/ordinary signed-in session must not unlock the reset form. A full
-   page reload after verification intentionally requires a fresh recovery OTP.
+### Smoke test
+
+- Run the migration in a test database. Confirm anon/authenticated roles cannot
+  read/write challenge rows or call the RPCs. Configure server keys privately.
+- Request a code for a known single-account phone. Verify delivery, wrong code,
+  expiry, 5-attempt lockout, resend limits, old-code invalidation, duplicate-phone
+  rejection, and grant replay/concurrency rejection.
+- Correct code → matching new password → login using original email/username
+  and new password. Confirm old password fails. Activation rules must not change.
+- Change the profile phone between issuance and completion: completion must fail.
+- Simulate provider failures and auth update failures; no password change is
+  allowed without a successful OTP and an unconsumed grant.

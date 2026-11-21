@@ -1,6 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { isPasswordRecoverySession, requireSupabase } from "@/lib/supabase";
+import {
+  requestSmsRecovery,
+  verifySmsRecovery,
+  completeSmsRecovery,
+} from "@/lib/sms-recovery";
+import { normalizeTanzaniaPhone } from "@/lib/phone";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +16,17 @@ export const Route = createFileRoute("/forgot-password")({
 });
 
 function ForgotPassword() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [requestedEmail, setRequestedEmail] = useState("");
-  const [token, setToken] = useState("");
+  const [step, setStep] = useState<"phone" | "otp" | "password" | "saved">(
+    "phone",
+  );
+  const [phone, setPhone] = useState("");
+  const [challengeId, setChallengeId] = useState("");
+  const [code, setCode] = useState("");
+  const [grant, setGrant] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -33,65 +43,80 @@ function ForgotPassword() {
     if (busy || cooldown > 0) return;
     setBusy(true);
     setError("");
-    setNotice("");
-    const address = requestedEmail || email.trim().toLowerCase();
     try {
-      // This is a recovery OTP, not passwordless sign-in: never create an account.
-      // The Supabase Reset password email template must render {{ .Token }}.
-      const { error } = await requireSupabase().auth.resetPasswordForEmail(
-        address,
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        },
-      );
-      if (error) throw error;
-      setRequestedEmail(address);
-      setToken("");
+      const normalized = normalizeTanzaniaPhone(phone);
+      const result = await requestSmsRecovery({ data: { phone: normalized } });
+      setPhone(normalized);
+      setChallengeId(result.challengeId);
+      setCode("");
+      setGrant("");
       setCooldown(60);
-      setNotice(
-        "Kama email hii imesajiliwa, utapokea OTP. Angalia inbox na spam, kisha weka code hapa. Tumia code ya email mpya zaidi.",
-      );
-    } catch {
+      setStep("otp");
+    } catch (error) {
       setError(
-        "Imeshindikana kutuma OTP kwa sasa. Subiri kidogo kisha ujaribu tena.",
+        error instanceof Error
+          ? error.message
+          : "OTP haijatumwa. Jaribu tena baadaye.",
       );
     } finally {
       setBusy(false);
     }
   }
 
-  async function verifyCode(event: FormEvent) {
+  async function verify(event: FormEvent) {
     event.preventDefault();
-    if (busy || !requestedEmail) return;
+    if (busy) return;
     setError("");
-    const code = token.trim();
-    // Supabase projects may use different OTP lengths (including 6 or 8 digits).
-    if (!/^[0-9]{6,10}$/.test(code)) {
-      setError("Weka code ya tarakimu ulizopokea kwenye email.");
+    if (!/^\d{6}$/.test(code)) {
+      setError("Weka OTP ya tarakimu 6 kutoka kwenye SMS.");
       return;
     }
     setBusy(true);
     try {
-      const { data, error } = await requireSupabase().auth.verifyOtp({
-        email: requestedEmail,
-        token: code,
-        type: "recovery",
-      });
-      if (
-        error ||
-        !data.session ||
-        !isPasswordRecoverySession(data.session.user.id)
-      ) {
-        setError(
-          "OTP si sahihi au muda wake umeisha. Tumia code mpya zaidi au omba nyingine.",
-        );
-        return;
-      }
-      setToken("");
-      await navigate({ to: "/reset-password" });
-    } catch {
+      const result = await verifySmsRecovery({ data: { challengeId, code } });
+      setGrant(result.grant);
+      setCode("");
+      setStep("password");
+    } catch (error) {
       setError(
-        "OTP haijathibitishwa. Angalia muunganisho wako kisha ujaribu tena.",
+        error instanceof Error ? error.message : "OTP haijathibitishwa.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (busy || !grant) return;
+    setError("");
+    if (password.length < 6 || password.length > 128) {
+      setError("Password iwe na herufi 6 hadi 128.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Password hazifanani.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await completeSmsRecovery({ data: { challengeId, grant, password } });
+      await supabase?.auth.signOut({ scope: "local" }).catch(() => {});
+      setPassword("");
+      setConfirm("");
+      setGrant("");
+      setChallengeId("");
+      setStep("saved");
+    } catch (error) {
+      // A consumed grant is never retried, including ambiguous network failures.
+      setGrant("");
+      setPassword("");
+      setConfirm("");
+      setStep("otp");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Hatujaweza kuthibitisha kama password imehifadhiwa. Jaribu kuingia; ikishindikana omba OTP mpya.",
       );
     } finally {
       setBusy(false);
@@ -102,47 +127,85 @@ function ForgotPassword() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md rounded-3xl bg-card p-6 shadow-xl">
         <h1 className="text-2xl font-extrabold text-accent">
-          {requestedEmail ? "Weka OTP ya email" : "Umesahau Password?"}
+          {step === "phone"
+            ? "Umesahau Password?"
+            : step === "otp"
+              ? "Weka OTP ya SMS"
+              : step === "password"
+                ? "Weka password mpya"
+                : "Password imebadilishwa"}
         </h1>
-        {requestedEmail ? (
+        {step === "phone" && (
           <>
-            <p className="mt-2 break-words text-sm text-muted-foreground">
-              Email: {requestedEmail}
+            <p className="mt-2 text-sm text-muted-foreground">
+              Weka namba ya simu uliyotumia kujisajili. Utapokea OTP kwenye SMS,
+              kisha utaweka password mpya hapa.
             </p>
-            {notice && (
-              <p role="status" className="mt-3 text-sm text-muted-foreground">
-                {notice}
-              </p>
-            )}
-            <form onSubmit={verifyCode} className="mt-6 space-y-4">
+            <form onSubmit={sendCode} className="mt-6 space-y-4">
               <div>
-                <Label htmlFor="recovery-otp">Code ya OTP</Label>
+                <Label htmlFor="recovery-phone">Namba ya simu ya usajili</Label>
+                <Input
+                  id="recovery-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  maxLength={40}
+                  placeholder="07xxxxxxxx au 2557xxxxxxxx"
+                  className="mt-1 h-11"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  disabled={busy}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="h-12 w-full font-bold"
+                disabled={busy || cooldown > 0}
+              >
+                {busy
+                  ? "Inatuma…"
+                  : cooldown > 0
+                    ? `Subiri sekunde ${cooldown}`
+                    : "Tuma OTP kwa SMS"}
+              </Button>
+            </form>
+          </>
+        )}
+        {step === "otp" && (
+          <>
+            <p role="status" className="mt-3 text-sm text-muted-foreground">
+              Kama namba hii ina account moja iliyosajiliwa, utapokea SMS. Tumia
+              code mpya zaidi ndani ya dakika 5. Kama SMS haifiki, hakikisha
+              namba ni sahihi au wasiliana na huduma kwa wateja.
+            </p>
+            <p className="mt-2 text-sm">Namba: +{phone}</p>
+            <form onSubmit={verify} className="mt-6 space-y-4">
+              <div>
+                <Label htmlFor="recovery-otp">OTP ya tarakimu 6</Label>
                 <Input
                   id="recovery-otp"
-                  className="mt-1 h-11"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  pattern="[0-9]{6,10}"
+                  pattern="[0-9]{6}"
                   minLength={6}
-                  maxLength={10}
+                  maxLength={6}
                   required
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
+                  className="mt-1 h-11"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
                   disabled={busy}
-                  aria-describedby="otp-help"
                 />
-                <p id="otp-help" className="mt-2 text-xs text-muted-foreground">
-                  Weka code kutoka kwenye email, si password yako. Usimpe mtu
-                  mwingine code hii.
-                </p>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Usimpe mtu mwingine OTP yako. Una majaribio 5 kwa kila code.
+              </p>
               <Button
                 type="submit"
                 disabled={busy}
                 className="h-12 w-full font-bold"
               >
-                {busy ? "Inasubiri…" : "Thibitisha OTP"}
+                {busy ? "Inathibitisha…" : "Thibitisha OTP"}
               </Button>
             </form>
             <div className="mt-4 flex flex-col gap-2">
@@ -161,49 +224,68 @@ function ForgotPassword() {
                 variant="ghost"
                 disabled={busy}
                 onClick={() => {
-                  setRequestedEmail("");
-                  setToken("");
+                  setStep("phone");
+                  setCode("");
+                  setChallengeId("");
                   setError("");
-                  setNotice("");
                 }}
               >
-                Badilisha email
+                Badilisha namba
               </Button>
             </div>
           </>
-        ) : (
+        )}
+        {step === "password" && (
           <>
             <p className="mt-2 text-sm text-muted-foreground">
-              Weka email uliyojisajili nayo. Tutakutumia OTP; utaithibitisha
-              hapa kisha uchague password mpya.
+              Namba imethibitishwa kwa OTP. Chagua password mpya ndani ya dakika
+              5.
             </p>
-            <form onSubmit={sendCode} className="mt-6 space-y-4">
+            <form onSubmit={save} className="mt-6 space-y-4">
               <div>
-                <Label htmlFor="recovery-email">Email uliyojisajili nayo</Label>
+                <Label htmlFor="new-password">Password mpya</Label>
                 <Input
-                  id="recovery-email"
-                  className="mt-1 h-11"
-                  type="email"
-                  autoComplete="email"
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  minLength={6}
+                  maxLength={128}
+                  className="mt-1 h-11"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={busy}
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirm-password">Rudia password mpya</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  maxLength={128}
+                  className="mt-1 h-11"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
                   disabled={busy}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={busy || cooldown > 0}
+                disabled={busy}
                 className="h-12 w-full font-bold"
               >
-                {busy
-                  ? "Inatuma…"
-                  : cooldown > 0
-                    ? `Subiri sekunde ${cooldown}`
-                    : "Tuma OTP"}
+                {busy ? "Inahifadhi…" : "Hifadhi password mpya"}
               </Button>
             </form>
           </>
+        )}
+        {step === "saved" && (
+          <p role="status" className="mt-4 text-sm">
+            Sasa ingia kwa username au email yako na password mpya.
+          </p>
         )}
         {error && (
           <p role="alert" className="mt-4 text-sm text-destructive">
@@ -212,7 +294,7 @@ function ForgotPassword() {
         )}
         <p className="mt-5 text-center text-sm">
           <Link to="/login" className="font-bold text-primary hover:underline">
-            Rudi Login
+            {step === "saved" ? "Ingia kwa password mpya" : "Rudi Login"}
           </Link>
         </p>
       </div>
