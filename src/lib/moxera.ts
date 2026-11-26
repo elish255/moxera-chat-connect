@@ -394,6 +394,7 @@ export type MoxeraUser = {
   country: string;
   status?: "pending" | "active" | "banned" | "inactive";
   paymentStatus?: "unpaid" | "pending" | "paid" | "rejected";
+  activationBlockedAt?: string | null;
   membershipLevel?: "normal" | "premium" | "vip";
   invitedCount?: number;
   referralCode?: string;

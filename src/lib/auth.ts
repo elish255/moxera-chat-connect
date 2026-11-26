@@ -52,6 +52,7 @@ export async function getCurrentMoxeraUser(): Promise<MoxeraUser | null> {
   return {
     id: data.id, fullName: data.full_name, username: data.username, phone: data.phone,
     email: data.email, country: data.country, status: data.status, paymentStatus: data.payment_status,
+    activationBlockedAt: data.activation_blocked_at ?? null,
     membershipLevel: data.membership_level ?? "normal",
     invitedCount: referralCountError ? Number(data.invited_count ?? 0) : Number(referralCount ?? 0),
     referralCode: data.referral_code,
