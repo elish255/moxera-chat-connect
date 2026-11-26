@@ -264,8 +264,8 @@ function Payment() {
       </div>
       {!orderId && !paid && !failed && <>
         <div className="text-left">
-          <label htmlFor="payment-phone" className="mb-2 block text-sm font-semibold">Namba ya simu ya kulipia</label>
           <p className="mb-3 text-sm font-bold leading-relaxed text-destructive">HAKIKISHA NAMBA ULIYOWEKA INA SALIO KABLA YA KUGUSA LIPA SASA</p>
+          <label htmlFor="payment-phone" className="mb-2 block text-sm font-semibold">Namba ya simu ya kulipia</label>
           <Input
             id="payment-phone"
             type="tel"
