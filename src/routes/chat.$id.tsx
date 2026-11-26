@@ -119,7 +119,7 @@ function makeRealisticReply(input: string, fallbacks: string[], recentReplies: s
     .toLocaleLowerCase("sw-TZ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-  const words = text.match(/[\p{L}]+/gu) ?? [];
+  const words: string[] = text.match(/[\p{L}]+/gu) ?? [];
   const matchingGroup = REPLY_GROUPS.find(({ words: keywords }) =>
     keywords.some((keyword) => {
       const normalizedKeyword = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -162,6 +162,9 @@ function ChatPage() {
   const [locked, setLocked] = useState(false);
   const [user, setUser] = useState<MoxeraUser | null>(null);
   const [sentCount, setSentCount] = useState(0);
+  const [payoutStatus, setPayoutStatus] = useState<
+    "idle" | "processing" | "failed" | "paid"
+  >("idle");
   const endRef = useRef<HTMLDivElement>(null);
   const chatKey = useRef(`${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const paidRef = useRef(false);
@@ -203,6 +206,36 @@ function ChatPage() {
     );
   }
 
+  const completeChatPayout = async () => {
+    if (paidRef.current || !user?.id) return;
+    if (!supabase) {
+      setPayoutStatus("failed");
+      toast.error("Malipo hayajakamilika. Tafadhali jaribu tena.");
+      return;
+    }
+
+    paidRef.current = true;
+    setPayoutStatus("processing");
+    try {
+      const { error } = await supabase.rpc("moxera_complete_chat", {
+        p_foreigner_id: foreigner.id,
+        p_amount: foreigner.rate,
+        p_chat_key: chatKey.current,
+      });
+      if (error) throw error;
+      setPayoutStatus("paid");
+      toast.success(
+        `Hongera! TZS ${foreigner.rate.toLocaleString()} imeongezwa kwenye salio lako.`,
+      );
+    } catch {
+      paidRef.current = false;
+      setPayoutStatus("failed");
+      toast.error(
+        "Malipo hayajakamilika. Bonyeza Jaribu tena ili salio lako liongezwe.",
+      );
+    }
+  };
+
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
@@ -222,11 +255,7 @@ function ChatPage() {
     );
     recentRepliesRef.current = [...recentRepliesRef.current, reply].slice(-8);
     setSentCount(nextCount);
-    if (nextCount >= 10 && !paidRef.current && user.id && supabase) {
-      paidRef.current = true;
-      supabase.rpc("moxera_complete_chat", { p_foreigner_id: foreigner.id, p_amount: foreigner.rate, p_chat_key: chatKey.current })
-        .then(({ error }) => { if (error) { paidRef.current = false; toast.error("Malipo hayajakamilika. Tafadhali jaribu tena."); } else { toast.success(`Hongera! TZS ${foreigner.rate.toLocaleString()} imeongezwa kwenye salio lako.`); } });
-    }
+    if (nextCount >= 10 && !paidRef.current) void completeChatPayout();
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
@@ -294,6 +323,35 @@ function ChatPage() {
         <div ref={endRef} />
       </div>
 
+      {payoutStatus === "processing" && (
+        <p
+          className="border-t border-border bg-card px-4 py-2 text-center text-sm text-muted-foreground"
+          role="status"
+        >
+          Mazungumzo yamekamilika. Tunaongeza malipo kwenye salio lako…
+        </p>
+      )}
+      {payoutStatus === "failed" && (
+        <div
+          className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-card px-4 py-3"
+          role="alert"
+        >
+          <p className="text-center text-sm text-destructive">
+            Salio halijaongezwa bado. Jaribu tena ili upokee malipo ya chat hii.
+          </p>
+          <Button size="sm" onClick={() => void completeChatPayout()}>
+            Jaribu tena
+          </Button>
+        </div>
+      )}
+      {payoutStatus === "paid" && (
+        <p
+          className="border-t border-border bg-card px-4 py-2 text-center text-sm text-primary"
+          role="status"
+        >
+          Malipo ya chat yameongezwa kwenye salio lako.
+        </p>
+      )}
       <div className="sticky bottom-0 flex items-end gap-2 border-t border-border bg-card px-3 py-3">
         <textarea
           value={input}
