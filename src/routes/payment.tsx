@@ -194,9 +194,9 @@ function Payment() {
   const FEE = PLAN_FEES[plan] ?? ACTIVATION_FEE;
 
   useEffect(() => {
-    getCurrentMoxeraUser().then(async (u) => {
+    getCurrentMoxeraUser().then((u) => {
       if (!u) { nav({ to: '/register' }); return; }
-      setPhone(u.phone);
+      setPhone('');
       if (u.activationBlockedAt) setDialogType('blocked');
       const requestedPlan = new URLSearchParams(window.location.search).get('plan');
       const currentPlan = requestedPlan === 'premium' || requestedPlan === 'vip' ? requestedPlan : 'activation';
@@ -208,11 +208,21 @@ function Payment() {
       }
       if (currentPlan === 'premium' && u.membershipLevel === 'premium') { setPaid(true); nav({ to: '/dashboard' }); return; }
       if (currentPlan === 'vip' && u.membershipLevel === 'vip') { setPaid(true); nav({ to: '/dashboard' }); return; }
-      if (!supabase) return;
-      const { data } = await supabase.from('moxera_payments').select('external_order_id,status').eq('user_id', u.id).eq('plan', currentPlan).eq('status', 'pending').not('external_order_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (data?.external_order_id) setOrderId(data.external_order_id);
     }).catch(() => undefined);
   }, [nav]);
+
+  useEffect(() => {
+    const resetOnBackForwardRestore = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      setOrderId(null);
+      setStatus('PENDING');
+      setPaid(false);
+      setFailed(false);
+      setPhone('');
+    };
+    window.addEventListener('pageshow', resetOnBackForwardRestore);
+    return () => window.removeEventListener('pageshow', resetOnBackForwardRestore);
+  }, []);
 
   useEffect(() => {
     if (!orderId || paid || failed) return;
