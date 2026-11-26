@@ -7,6 +7,7 @@ import { getCurrentMoxeraUser } from '@/lib/auth';
 import { normalizeTanzaniaPhone } from '@/lib/phone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const ACTIVATION_FEE = 15000;
 const PLAN_FEES: Record<string, number> = { activation: ACTIVATION_FEE, premium: 32000, vip: 35500 };
@@ -21,11 +22,11 @@ export const Route = createFileRoute('/payment')({
           const plan = ['activation','premium','vip'].includes(String(body?.plan ?? 'activation')) ? String(body?.plan ?? 'activation') : 'activation';
           const authHeader = request.headers.get('authorization') ?? '';
           const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-          const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-          const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-          const splashPayApiKey = process.env.SPLASHPAY_API_KEY;
-          const splashPayApiSecret = process.env.SPLASHPAY_API_SECRET;
-          const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const supabaseUrl = process.env['VITE_SUPABASE_URL'] ?? process.env['SUPABASE_URL'];
+          const anonKey = process.env['VITE_SUPABASE_ANON_KEY'] ?? process.env['SUPABASE_ANON_KEY'];
+          const splashPayApiKey = process.env['SPLASHPAY_API_KEY'];
+          const splashPayApiSecret = process.env['SPLASHPAY_API_SECRET'];
+          const serviceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
           if (!supabaseUrl || !anonKey || !splashPayApiKey || !splashPayApiSecret || !serviceKey) return Response.json({ error: 'Payment service is not configured. Set SPLASHPAY_API_KEY, SPLASHPAY_API_SECRET and Supabase server variables in Vercel.' }, { status: 500 });
           if (!token) return Response.json({ error: 'Unauthenticated.' }, { status: 401 });
 
@@ -36,8 +37,9 @@ export const Route = createFileRoute('/payment')({
           const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
           if (action === 'create') {
-            const { data: user, error: userError } = await db.from('moxera_users').select('id,full_name,email,phone,status,payment_status,membership_level').eq('id', authData.user.id).maybeSingle();
+            const { data: user, error: userError } = await db.from('moxera_users').select('id,full_name,email,phone,status,payment_status,membership_level,activation_blocked_at').eq('id', authData.user.id).maybeSingle();
             if (userError || !user) return Response.json({ error: 'User profile not found.' }, { status: 404 });
+            if (plan === 'activation' && user.activation_blocked_at) return Response.json({ error: 'Account yako imezuiwa. Mtafute mtoa huduma kwa msaada.', code: 'ACTIVATION_BLOCKED' }, { status: 403 });
             if (user.status === 'banned') return Response.json({ error: 'Akaunti yako imezuiwa.' }, { status: 403 });
             if (plan === 'activation' && user.payment_status === 'paid') return Response.json({ error: 'Malipo ya activation tayari yamekamilika.' }, { status: 409 });
             if (plan === 'premium' && user.membership_level === 'premium') return Response.json({ error: 'Account yako tayari ni Premium.' }, { status: 409 });
@@ -53,6 +55,16 @@ export const Route = createFileRoute('/payment')({
             }
             const amount = plan === 'premium' ? 32000 : plan === 'vip' ? 35500 : 15000;
             if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: 'Kiasi cha malipo hakijasanidiwa vizuri.' }, { status: 500 });
+            if (plan === 'activation') {
+              const { data: attemptRows, error: attemptError } = await db.rpc('moxera_reserve_activation_push', { p_user_id: user.id });
+              if (attemptError) {
+                console.error('[Payment] activation attempt reservation failed', attemptError.message);
+                return Response.json({ error: 'Imeshindikana kuthibitisha ombi la malipo. Jaribu tena baadaye.' }, { status: 500 });
+              }
+              const attempt = Array.isArray(attemptRows) ? attemptRows[0] : attemptRows;
+              if (attempt?.is_blocked) return Response.json({ error: 'Account yako imezuiwa. Mtafute mtoa huduma kwa msaada.', code: 'ACTIVATION_BLOCKED' }, { status: 403 });
+              if (Number(attempt?.attempt_count) >= 3) return Response.json({ error: 'Umepush zaidi ya Mara Mbili bila Kulipia, Account Yako itasimamishwa Ikiwa utagusa Lipa sasa na Hutakamilisha Malipo', code: 'ACTIVATION_WARNING' }, { status: 429 });
+            }
             // SplashPay merchant references must begin with INV- and remain unique.
             const reference = `INV-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
             const idempotencyKey = `moxera-${reference}`;
@@ -161,7 +173,11 @@ async function paymentRequest(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Imeshindikana.');
+  if (!response.ok) {
+    const error = new Error(data?.error || 'Imeshindikana.') as Error & { code?: string };
+    error.code = data?.code;
+    throw error;
+  }
   return data;
 }
 
@@ -172,14 +188,16 @@ function Payment() {
   const [status, setStatus] = useState('PENDING');
   const [paid, setPaid] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [dialogType, setDialogType] = useState<'warning' | 'blocked' | null>(null);
   const [phone, setPhone] = useState('');
   const [plan, setPlan] = useState<'activation'|'premium'|'vip'>('activation');
-  const FEE = PLAN_FEES[plan];
+  const FEE = PLAN_FEES[plan] ?? ACTIVATION_FEE;
 
   useEffect(() => {
     getCurrentMoxeraUser().then(async (u) => {
       if (!u) { nav({ to: '/register' }); return; }
       setPhone(u.phone);
+      if (u.activationBlockedAt) setDialogType('blocked');
       const requestedPlan = new URLSearchParams(window.location.search).get('plan');
       const currentPlan = requestedPlan === 'premium' || requestedPlan === 'vip' ? requestedPlan : 'activation';
       setPlan(currentPlan);
@@ -227,8 +245,12 @@ function Payment() {
       setOrderId(result.orderId);
       setStatus(result.paymentStatus || 'PENDING');
       toast.success('Ombi la malipo limetumwa kwenye simu yako.');
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Imeshindikana kuanzisha malipo.'); }
-    finally { setBusy(false); }
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+      if (code === 'ACTIVATION_WARNING') setDialogType('warning');
+      else if (code === 'ACTIVATION_BLOCKED') setDialogType('blocked');
+      else toast.error(error instanceof Error ? error.message : 'Imeshindikana kuanzisha malipo.');
+    } finally { setBusy(false); }
   }
 
   return <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
@@ -242,6 +264,7 @@ function Payment() {
       </div>
       {!orderId && !paid && !failed && <>
         <div className="text-left">
+          <p className="mb-3 text-sm font-bold leading-relaxed text-destructive">HAKIKISHA NAMBA ULIYOWEKA INA SALIO KABLA YA KUGUSA LIPA SASA</p>
           <label htmlFor="payment-phone" className="mb-2 block text-sm font-semibold">Namba ya simu ya kulipia</label>
           <Input
             id="payment-phone"
@@ -262,5 +285,18 @@ function Payment() {
       {failed && <div className="rounded-2xl bg-secondary p-5"><p className="font-bold">Malipo hayajakamilika</p><p className="mt-1 text-sm text-muted-foreground">Unaweza kujaribu tena.</p><Button onClick={() => { setOrderId(null); setFailed(false); }} className="mt-4">Jaribu tena</Button></div>}
       <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" /> Malipo salama</div>
     </div>
+    <Dialog open={dialogType !== null} onOpenChange={(open) => { if (!open && dialogType !== 'blocked') setDialogType(null); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-center text-destructive">ONYO</DialogTitle>
+          <DialogDescription className="text-center leading-relaxed text-foreground">
+            {dialogType === 'warning'
+              ? 'Umepush zaidi ya Mara Mbili bila Kulipia, Account Yako itasimamishwa Ikiwa utagusa Lipa sasa na Hutakamilisha Malipo'
+              : 'Account yako imeiezuiwa, Mtafute mtoa huduma kwa Msaada'}
+          </DialogDescription>
+        </DialogHeader>
+        {dialogType === 'blocked' && <Button asChild className="w-full"><a href="sms:0743871339?body=Akaunti%20yangu%20imezuiwa%2C%20naomba%20msaada.">Customer Service</a></Button>}
+      </DialogContent>
+    </Dialog>
   </main>;
 }
